@@ -1,32 +1,36 @@
 module Main where
 
 import           Configuration.Dotenv
-import           Data.ByteString
+import qualified Data.ByteString               as B
 import           Data.String
-import           Lib
+import qualified Lib                           as L
 import           Network.Socket
 import           Network.Wai
 import           Network.Wai.Handler.Warp
 import           System.Environment
 import           Text.Read
 
-data Configuration = Configuration {
-        cookieSecret :: Maybe ByteString,
-        socketBindTo :: Maybe String,
-        warpSettings :: Settings
-    }
+data Configuration = Configuration
+  { databaseConnection :: B.ByteString
+  , secretKey :: Maybe B.ByteString
+  , socketBindTo :: Maybe String
+  , warpSettings :: Settings
+  }
+
+defaultConfiguration :: Configuration
+defaultConfiguration = Configuration { databaseConnection = B.empty
+                                     , secretKey          = Nothing
+                                     , socketBindTo       = Nothing
+                                     , warpSettings       = defaultSettings
+                                     }
 
 data ConfigurationHelper =
-    Secret | Socket | Warp (String -> Maybe (Settings -> Settings))
+  DatabaseConnection | SecretKey | Socket |
+  Warp (String -> Maybe (Settings -> Settings))
 
-appConfiguration :: IO Configuration
-appConfiguration = flip cfgPopulate defaultConfiguration <$> getSettings
+loadConfiguration :: IO Configuration
+loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
     where
-        defaultConfiguration = Configuration { cookieSecret = Nothing
-                                             , socketBindTo = Nothing
-                                             , warpSettings = defaultSettings
-                                             }
-
         -- Warp Settings Helpers
         toMaybeChw = return . Warp
         readWarpCh f = toMaybeChw $ fmap f . readMaybe
@@ -45,33 +49,48 @@ appConfiguration = flip cfgPopulate defaultConfiguration <$> getSettings
         helperForVar "SERVER_NAME"       = stringWarpCh setServerName
         helperForVar "MAX_BODY_FLUSH"    = readWarpCh setMaximumBodyFlush
         helperForVar "SLOWLORIS_SIZE"    = readWarpCh setSlowlorisSize
-        helperForVar "SECRET"            = Just Secret
-        helperForVar "SOCKET"            = Just Socket
         helperForVar "SHUTDOWN_TIMEOUT"  = readWarpCh setGracefulShutdownTimeout
+        helperForVar "DB_CONN"           = Just DatabaseConnection
+        helperForVar "SECRET_KEY"        = Just SecretKey
+        helperForVar "SOCKET"            = Just Socket
         helperForVar _                   = Nothing
 
         -- Go through all environment variables to find & apply relevant ones
         chApply cfg k v hf = case hf of
-                Secret -> cfg { cookieSecret = Just $ fromString v }
-                Socket -> cfg { socketBindTo = Just v }
-                Warp f -> warpApply cfg k v f
-        cfgPopulate ((k, v) : xs) cfg =
-                cfgPopulate xs $ maybe cfg (chApply cfg k v) $ helperForVar k
-        cfgPopulate [] cfg = cfg
+                DatabaseConnection -> cfg { databaseConnection = fromString v }
+                SecretKey          -> cfg { secretKey = Just $ fromString v }
+                Socket             -> cfg { socketBindTo = Just v }
+                Warp f             -> warpApply cfg k v f
+        cfgPopulate cfg ((k, v) : xs) =
+                cfgPopulate (maybe cfg (chApply cfg k v) $ helperForVar k) xs
+        cfgPopulate cfg [] = cfg
 
         -- Load environment variables from dotenv file
         maybeLoadDotEnv = onMissingFile (loadFile defaultConfig) $ return []
         getSettings     = maybeLoadDotEnv >> getEnvironment
 
 main :: IO ()
-main = appConfiguration >>= runWarp app
+main = do
+        cfg <- loadConfiguration
+        app <- L.app $ appCfgOfCfg cfg
+        getWarp cfg >>= flip ($) app
     where
         unixSocket path = do
                 sock <- socket AF_UNIX Stream defaultProtocol
                 bind sock $ SockAddrUnix path
                 listen sock maxListenQueue
                 return sock
-        runWarp app cfg = case socketBindTo cfg of
-                Just path -> unixSocket path
-                        >>= \s -> runSettingsSocket (warpSettings cfg) s app
-                Nothing -> runSettings (warpSettings cfg) app
+        getWarp cfg = case socketBindTo cfg of
+                Just path ->
+                        unixSocket path
+                                >>= \s -> return $ runSettingsSocket
+                                            (warpSettings cfg)
+                                            s
+                Nothing -> return $ runSettings (warpSettings cfg)
+
+        appCfgOfCfg cfg = L.AppConfiguration
+                { L.databaseConnection = databaseConnection cfg
+                , L.secretKey          = case secretKey cfg of
+                        Just sk -> sk
+                        Nothing -> error "SECRET_KEY must be specified!"
+                }

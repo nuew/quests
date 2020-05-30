@@ -2,12 +2,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
 module Lib
-        ( app
+        ( AppConfiguration(..)
+        , app
         )
 where
 
+import           Data.ByteString
 import           Data.Aeson
 import           Data.Aeson.TH
+import           Data.Pool
+import           Database.PostgreSQL.Simple
 import           Servant
 
 data User = User
@@ -20,14 +24,26 @@ $(deriveJSON defaultOptions ''User)
 
 type API = "users" :> Get '[JSON] [User]
 
-app :: Application
-app = serve api server
+data AppConfiguration = AppConfiguration
+  { databaseConnection :: ByteString
+  , secretKey :: ByteString
+  }
+
+app :: AppConfiguration -> IO Application
+app cfg = setupDatabasePool >>= \pool -> return $ serve api $ server pool
+    where
+        setupDatabasePool = createPool
+                (connectPostgreSQL $ databaseConnection cfg)
+                close
+                2
+                60
+                10
 
 api :: Proxy API
 api = Proxy
 
-server :: Server API
-server = return users
+server :: Pool Connection -> Server API
+server _ = return users
 
 users :: [User]
 users = [User 1 "Isaac" "Newton", User 2 "Albert" "Einstein"]
