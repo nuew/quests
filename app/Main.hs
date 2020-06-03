@@ -7,11 +7,15 @@ import           Data.String
 import           Data.Time.Clock
 import           Data.Time.Format
 import qualified Lib                           as L
-import           Network.Socket
+import qualified Network.Socket                as S
 import           Network.Wai
 import           Network.Wai.Handler.Warp
 import           System.Environment
-import           Text.Read
+import           System.Log.Raven
+import           System.Log.Raven.Interfaces
+import           System.Log.Raven.Transport.HttpConduit
+import           System.Log.Raven.Types
+import           Text.Read                      ( readMaybe )
 
 data Configuration = Configuration
   { databaseConnection :: B.ByteString
@@ -19,6 +23,7 @@ data Configuration = Configuration
   , databasePoolStripes :: Int
   , databasePoolTimeout :: NominalDiffTime
   , secretKey :: Maybe B.ByteString
+  , sentryService :: IO SentryService
   , socketBindTo :: Maybe String
   , warpSettings :: Settings
   }
@@ -39,13 +44,14 @@ defaultConfiguration = Configuration { databaseConnection   = B.empty
                                      , databasePoolStripes  = 2
                                      , databasePoolTimeout  = 10
                                      , secretKey            = Nothing
+                                     , sentryService        = disabledRaven
                                      , socketBindTo         = Nothing
                                      , warpSettings         = defaultSettings
                                      }
 
 data ConfigurationHelper =
   DatabaseConnection | DatabaseMaxConns | DatabaseStripes | DatabaseTimeout |
-  SecretKey | Socket | Warp (String -> Maybe (Settings -> Settings))
+  SecretKey | Sentry | Socket | Warp (String -> Maybe (Settings -> Settings))
 
 loadConfiguration :: IO Configuration
 loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
@@ -71,10 +77,12 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         helperForVar "DB_STRIPES"        = Just DatabaseStripes
         helperForVar "DB_TIMEOUT"        = Just DatabaseTimeout
         helperForVar "SECRET_KEY"        = Just SecretKey
+        helperForVar "SENTRY_DSN"        = Just Sentry
         helperForVar "SOCKET"            = Just Socket
         helperForVar _                   = Nothing
 
         parseSecondsDt = parseTimeM True defaultTimeLocale "%s"
+        sentryConnect dsn = initRaven dsn id sendRecord stderrFallback
 
         -- Go through all environment variables to find & apply relevant ones
         chApply cfg k v hf = case hf of
@@ -86,6 +94,7 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
                 DatabaseTimeout -> cfgApply k v parseSecondsDt
                         $ \a -> cfg { databasePoolTimeout = a }
                 SecretKey -> cfg { secretKey = Just $ fromString v }
+                Sentry    -> cfg { sentryService = sentryConnect v }
                 Socket    -> cfg { socketBindTo = Just v }
                 Warp f    -> cfgApply
                         k
@@ -102,22 +111,52 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         maybeLoadDotEnv = onMissingFile (loadFile defaultConfig) $ return []
         getSettings     = maybeLoadDotEnv >> getEnvironment
 
+setSentry :: SentryService -> Settings -> Settings
+setSentry sentry ws = setOnException onException $ setLogger logger ws
+    where
+        exceptionLevel e =
+                if defaultShouldDisplayException e then Error else Warning
+        fmtExcept Nothing e =
+                "Exception before request could be parsed: " ++ show e
+        fmtExcept (Just rq) e =
+                "Exception " ++ show e ++ " while handling request" ++ show rq
+        updateExcept Nothing   _ r = r
+        updateExcept (Just rq) _ r = r
+                { srCulprit    = Just $ show $ rawPathInfo rq
+                , srServerName = show <$> requestHeaderHost rq
+                }
+
+        onException rq e = register sentry
+                                    "warp_except"
+                                    (exceptionLevel e)
+                                    (fmtExcept rq e)
+                                    (updateExcept rq e)
+        logger rq stat fz = register
+                sentry
+                "warp_log"
+                Debug
+                ('[' : show stat ++ "] " ++ show rq)
+                id
+
 main :: IO ()
 main = do
-        cfg <- loadConfiguration
-        app <- L.app $ appCfgOfCfg cfg
-        getWarp cfg >>= flip ($) app
+        cfg    <- loadConfiguration
+        sentry <- sentryService cfg
+        app    <- L.app $ appCfgOfCfg cfg
+        -- TODO move the sentry-enabling cfg modification into its own function
+        let ws = warpSettings cfg
+            cfg' = cfg { warpSettings = setSentry sentry ws }
+            in getWarp cfg' app
     where
         unixSocket path = do
-                sock <- socket AF_UNIX Stream defaultProtocol
-                bind sock $ SockAddrUnix path
-                listen sock maxListenQueue
+                sock <- S.socket S.AF_UNIX S.Stream S.defaultProtocol
+                S.bind sock $ S.SockAddrUnix path
+                S.listen sock S.maxListenQueue
                 return sock
         getWarp cfg = case socketBindTo cfg of
-                Just path -> return $ \a ->
-                        bracket (unixSocket path) close $ \s ->
-                                runSettingsSocket (warpSettings cfg) s a
-                Nothing -> return $ runSettings (warpSettings cfg)
+                Just path -> \a -> bracket (unixSocket path) S.close
+                        $ \s -> runSettingsSocket (warpSettings cfg) s a
+                Nothing -> runSettings (warpSettings cfg)
         appCfgOfCfg cfg = L.AppConfiguration
                 { L.databaseConnection   = databaseConnection cfg
                 , L.databasePoolMaxConns = databasePoolMaxConns cfg
