@@ -2,17 +2,23 @@ module Main where
 
 import           Configuration.Dotenv
 import           Control.Exception.Base
+import           Control.Monad
+import           Data.Aeson                     ( toJSON )
+import           Data.Bifunctor
 import qualified Data.ByteString               as B
+import           Data.HashMap.Strict
+import           Data.Maybe
 import           Data.String
 import           Data.Time.Clock
 import           Data.Time.Format
+import           Data.Version
 import qualified Lib                           as L
 import qualified Network.Socket                as S
 import           Network.Wai
 import           Network.Wai.Handler.Warp
+import           Paths_quests
 import           System.Environment
 import           System.Log.Raven
-import           System.Log.Raven.Interfaces
 import           System.Log.Raven.Transport.HttpConduit
 import           System.Log.Raven.Types
 import           Text.Read                      ( readMaybe )
@@ -82,7 +88,10 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         helperForVar _                   = Nothing
 
         parseSecondsDt = parseTimeM True defaultTimeLocale "%s"
-        sentryConnect dsn = initRaven dsn id sendRecord stderrFallback
+        defaultRecord r =
+                r { srRelease = Just $ "quests-" ++ showVersion version }
+        sentryConnect dsn =
+                initRaven dsn defaultRecord sendRecord stderrFallback
 
         -- Go through all environment variables to find & apply relevant ones
         chApply cfg k v hf = case hf of
@@ -111,42 +120,70 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         maybeLoadDotEnv = onMissingFile (loadFile defaultConfig) $ return []
         getSettings     = maybeLoadDotEnv >> getEnvironment
 
-setSentry :: SentryService -> Settings -> Settings
-setSentry sentry ws = setOnException onException $ setLogger logger ws
-    where
-        exceptionLevel e =
-                if defaultShouldDisplayException e then Error else Warning
-        fmtExcept Nothing e =
-                "Exception before request could be parsed: " ++ show e
-        fmtExcept (Just rq) e =
-                "Exception " ++ show e ++ " while handling request" ++ show rq
-        updateExcept Nothing   _ r = r
-        updateExcept (Just rq) _ r = r
-                { srCulprit    = Just $ show $ rawPathInfo rq
-                , srServerName = show <$> requestHeaderHost rq
-                }
 
-        onException rq e = register sentry
-                                    "warp_except"
-                                    (exceptionLevel e)
-                                    (fmtExcept rq e)
-                                    (updateExcept rq e)
-        logger rq stat fz = register
-                sentry
-                "warp_log"
-                Debug
-                ('[' : show stat ++ "] " ++ show rq)
-                id
+-- Create Sentry Event metadata
+sentryUpdateRecord :: Maybe Request -> SentryRecord -> SentryRecord
+sentryUpdateRecord Nothing   r = r
+sentryUpdateRecord (Just rq) r = r
+        { srCulprit    = Just $ show $ rawPathInfo rq
+        , srServerName = show <$> requestHeaderHost rq
+        , srTags       = union (srTags r) $ fromList
+                                 [ ("http.method", show $ requestMethod rq)
+                                 , ("http.version"     , show $ httpVersion rq)
+                                 , ("http.query_string", show $ rawQueryString rq)
+                                 , ("http.remote_host" , show $ remoteHost rq)
+                                 ]
+        , srExtra      = union (srExtra r) . fromList $ catMaybes
+                [ requestHeaderRange rq
+                        >>= \a -> Just ("http.request.range", showJSON a)
+                , requestHeaderReferer rq
+                        >>= \a -> Just ("http.referer", showJSON a)
+                , requestHeaderUserAgent rq
+                        >>= \a -> Just ("http.user_agent", showJSON a)
+                , case requestBodyLength rq of
+                        KnownLength l ->
+                                Just ("http.request.body_length", toJSON l)
+                        ChunkedBody -> Nothing
+                , Just ("http.is_secure", toJSON $ isSecure rq)
+                , Just ("http.request.headers", toJSON headersMap)
+                ]
+        }
+    where
+        showJSON   = toJSON . show
+        headersMap = fromList . fmap (bimap show show) $ requestHeaders rq
+
+-- Initialize Sentry Error Reporting Service
+startSentry :: Configuration -> IO Configuration
+startSentry cfg = mangleConfig <$> sentryService cfg
+    where
+        -- Create Event title
+        fmtTitle Nothing e =
+                "Exception before request could be parsed: " ++ show e
+        fmtTitle (Just rq) e =
+                "Exception while handling "
+                        ++ show (requestMethod rq)
+                        ++ " request for "
+                        ++ show (rawPathInfo rq)
+                        ++ ": "
+                        ++ show e
+
+        onException sentry rq e =
+                when (defaultShouldDisplayException e) $ register
+                        sentry
+                        "warp_except"
+                        Error
+                        (fmtTitle rq e)
+                        (sentryUpdateRecord rq)
+        mangleConfig sentry = cfg
+                { warpSettings = setOnException (onException sentry)
+                                         $ warpSettings cfg
+                }
 
 main :: IO ()
 main = do
-        cfg    <- loadConfiguration
-        sentry <- sentryService cfg
-        app    <- L.app $ appCfgOfCfg cfg
-        -- TODO move the sentry-enabling cfg modification into its own function
-        let ws = warpSettings cfg
-            cfg' = cfg { warpSettings = setSentry sentry ws }
-            in getWarp cfg' app
+        cfg <- loadConfiguration >>= startSentry
+        app <- L.app $ appCfgOfCfg cfg
+        getWarp cfg app
     where
         unixSocket path = do
                 sock <- S.socket S.AF_UNIX S.Stream S.defaultProtocol
