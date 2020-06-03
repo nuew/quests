@@ -1,8 +1,11 @@
 module Main where
 
 import           Configuration.Dotenv
+import           Control.Exception.Base
 import qualified Data.ByteString               as B
 import           Data.String
+import           Data.Time.Clock
+import           Data.Time.Format
 import qualified Lib                           as L
 import           Network.Socket
 import           Network.Wai
@@ -12,21 +15,37 @@ import           Text.Read
 
 data Configuration = Configuration
   { databaseConnection :: B.ByteString
+  , databasePoolMaxConns :: Int
+  , databasePoolStripes :: Int
+  , databasePoolTimeout :: NominalDiffTime
   , secretKey :: Maybe B.ByteString
   , socketBindTo :: Maybe String
   , warpSettings :: Settings
   }
 
+cfgApply
+        :: String
+        -> String
+        -> (String -> Maybe a)
+        -> (a -> Configuration)
+        -> Configuration
+cfgApply k v pf apf = case pf v of
+        Just a  -> apf a
+        Nothing -> error $ "bad configuration: couldn't parse $" ++ k
+
 defaultConfiguration :: Configuration
-defaultConfiguration = Configuration { databaseConnection = B.empty
-                                     , secretKey          = Nothing
-                                     , socketBindTo       = Nothing
-                                     , warpSettings       = defaultSettings
+defaultConfiguration = Configuration { databaseConnection   = B.empty
+                                     , databasePoolMaxConns = 16
+                                     , databasePoolStripes  = 2
+                                     , databasePoolTimeout  = 10
+                                     , secretKey            = Nothing
+                                     , socketBindTo         = Nothing
+                                     , warpSettings         = defaultSettings
                                      }
 
 data ConfigurationHelper =
-  DatabaseConnection | SecretKey | Socket |
-  Warp (String -> Maybe (Settings -> Settings))
+  DatabaseConnection | DatabaseMaxConns | DatabaseStripes | DatabaseTimeout |
+  SecretKey | Socket | Warp (String -> Maybe (Settings -> Settings))
 
 loadConfiguration :: IO Configuration
 loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
@@ -34,9 +53,6 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         -- Warp Settings Helpers
         toMaybeChw = return . Warp
         readWarpCh f = toMaybeChw $ fmap f . readMaybe
-        warpApply cfg k v f = case f v of
-                Just c  -> cfg { warpSettings = c $ warpSettings cfg }
-                Nothing -> error $ "bad configuration: couldn't parse $" ++ k
         stringWarpCh f = toMaybeChw $ fmap f . return . fromString
 
         -- Configuration environment variables to helper function
@@ -51,18 +67,35 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         helperForVar "SLOWLORIS_SIZE"    = readWarpCh setSlowlorisSize
         helperForVar "SHUTDOWN_TIMEOUT"  = readWarpCh setGracefulShutdownTimeout
         helperForVar "DB_CONN"           = Just DatabaseConnection
+        helperForVar "DB_MAX_CONNS"      = Just DatabaseMaxConns
+        helperForVar "DB_STRIPES"        = Just DatabaseStripes
+        helperForVar "DB_TIMEOUT"        = Just DatabaseTimeout
         helperForVar "SECRET_KEY"        = Just SecretKey
         helperForVar "SOCKET"            = Just Socket
         helperForVar _                   = Nothing
 
+        parseSecondsDt = parseTimeM True defaultTimeLocale "%s"
+
         -- Go through all environment variables to find & apply relevant ones
         chApply cfg k v hf = case hf of
                 DatabaseConnection -> cfg { databaseConnection = fromString v }
-                SecretKey          -> cfg { secretKey = Just $ fromString v }
-                Socket             -> cfg { socketBindTo = Just v }
-                Warp f             -> warpApply cfg k v f
-        cfgPopulate cfg ((k, v) : xs) =
-                cfgPopulate (maybe cfg (chApply cfg k v) $ helperForVar k) xs
+                DatabaseMaxConns   -> cfgApply k v readMaybe
+                        $ \a -> cfg { databasePoolMaxConns = a }
+                DatabaseStripes -> cfgApply k v readMaybe
+                        $ \a -> cfg { databasePoolStripes = a }
+                DatabaseTimeout -> cfgApply k v parseSecondsDt
+                        $ \a -> cfg { databasePoolTimeout = a }
+                SecretKey -> cfg { secretKey = Just $ fromString v }
+                Socket    -> cfg { socketBindTo = Just v }
+                Warp f    -> cfgApply
+                        k
+                        v
+                        f
+                        (\a -> cfg { warpSettings = a $ warpSettings cfg })
+
+        cfgPopulate cfg ((k, v) : xs) = cfgPopulate
+                (maybe cfg (chApply cfg k v) $ helperForVar k)
+                xs
         cfgPopulate cfg [] = cfg
 
         -- Load environment variables from dotenv file
@@ -81,16 +114,16 @@ main = do
                 listen sock maxListenQueue
                 return sock
         getWarp cfg = case socketBindTo cfg of
-                Just path ->
-                        unixSocket path
-                                >>= \s -> return $ runSettingsSocket
-                                            (warpSettings cfg)
-                                            s
+                Just path -> return $ \a ->
+                        bracket (unixSocket path) close $ \s ->
+                                runSettingsSocket (warpSettings cfg) s a
                 Nothing -> return $ runSettings (warpSettings cfg)
-
         appCfgOfCfg cfg = L.AppConfiguration
-                { L.databaseConnection = databaseConnection cfg
-                , L.secretKey          = case secretKey cfg of
+                { L.databaseConnection   = databaseConnection cfg
+                , L.databasePoolMaxConns = databasePoolMaxConns cfg
+                , L.databasePoolStripes  = databasePoolStripes cfg
+                , L.databasePoolTimeout  = databasePoolTimeout cfg
+                , L.secretKey            = case secretKey cfg of
                         Just sk -> sk
                         Nothing -> error "SECRET_KEY must be specified!"
                 }

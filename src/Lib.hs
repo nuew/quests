@@ -7,10 +7,12 @@ module Lib
         )
 where
 
-import           Data.ByteString
+import           Control.Exception.Base
 import           Data.Aeson
 import           Data.Aeson.TH
+import           Data.ByteString
 import           Data.Pool
+import           Data.Time.Clock
 import           Database.PostgreSQL.Simple
 import           Servant
 
@@ -26,18 +28,22 @@ type API = "users" :> Get '[JSON] [User]
 
 data AppConfiguration = AppConfiguration
   { databaseConnection :: ByteString
+  , databasePoolMaxConns :: Int
+  , databasePoolStripes :: Int
+  , databasePoolTimeout :: NominalDiffTime
   , secretKey :: ByteString
   }
 
 app :: AppConfiguration -> IO Application
-app cfg = setupDatabasePool >>= \pool -> return $ serve api $ server pool
+app cfg = bracket setupDatabasePool destroyAllResources
+        $ \pool -> return $ serve api $ server pool
     where
         setupDatabasePool = createPool
                 (connectPostgreSQL $ databaseConnection cfg)
                 close
-                2
-                60
-                10
+                (databasePoolStripes cfg)
+                (databasePoolTimeout cfg)
+                (databasePoolMaxConns cfg)
 
 api :: Proxy API
 api = Proxy
