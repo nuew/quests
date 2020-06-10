@@ -20,7 +20,9 @@ library
                      , aeson
                      , bytestring
                      , postgresql-simple
+                     , postgresql-simple-migration
                      , resource-pool
+                     , servant-auth-server
                      , servant-server
                      , time
   default-language:    Haskell2010
