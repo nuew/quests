@@ -18,6 +18,7 @@ import           Network.Wai
 import           Network.Wai.Handler.Warp
 import           Paths_quests
 import           System.Environment
+import           System.IO
 import           System.Log.Raven
 import           System.Log.Raven.Transport.HttpConduit
 import           System.Log.Raven.Types
@@ -91,7 +92,7 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         defaultRecord r =
                 r { srRelease = Just $ "quests-" ++ showVersion version }
         sentryConnect dsn =
-                initRaven dsn defaultRecord sendRecord stderrFallback
+                initRaven dsn defaultRecord sendRecord silentFallback
 
         -- Go through all environment variables to find & apply relevant ones
         chApply cfg k v hf = case hf of
@@ -168,12 +169,13 @@ startSentry cfg = mangleConfig <$> sentryService cfg
                         ++ show e
 
         onException sentry rq e =
-                when (defaultShouldDisplayException e) $ register
-                        sentry
-                        "warp_except"
-                        Error
-                        (fmtTitle rq e)
-                        (sentryUpdateRecord rq)
+                when (defaultShouldDisplayException e)
+                        $  hPutStrLn stderr (fmtTitle rq e)
+                        >> register sentry
+                                    "warp_except"
+                                    Error
+                                    (fmtTitle rq e)
+                                    (sentryUpdateRecord rq)
         mangleConfig sentry = cfg
                 { warpSettings = setOnException (onException sentry)
                                          $ warpSettings cfg
