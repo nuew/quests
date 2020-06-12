@@ -38,8 +38,9 @@ app cfg = bracket setupDatabasePool destroyAllResources
                 MigrationError e -> error e
         migrationCmds =
                 [MigrationInitialization, MigrationDirectory "./migrations/"]
-        doMigrations conn =
-                PG.withTransaction conn $ runMigrations False conn migrationCmds
+        doMigrations conn = PG.withTransaction conn $ do
+                PG.execute_ conn "SET LOCAL client_min_messages = WARNING;"
+                runMigrations False conn migrationCmds
         setupDatabasePool = do
                 pool <- createPool
                         (PG.connectPostgreSQL $ databaseConnection cfg)
