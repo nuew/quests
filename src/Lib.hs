@@ -1,14 +1,11 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators #-}
 module Lib
         ( AppConfiguration(..)
         , app
         )
 where
 
+import           API
 import           Control.Exception.Base
 import           Control.Monad.IO.Class
 import           Data.Aeson
@@ -20,8 +17,6 @@ import qualified Database.PostgreSQL.Simple    as PG
 import           Database.PostgreSQL.Simple.Migration
 import           Servant
 import           Servant.Auth.Server
-
-type API = Get '[PlainText] String :<|> "db" :> Get '[PlainText] String
 
 data AppConfiguration = AppConfiguration
   { databaseConnection :: B.ByteString
@@ -55,18 +50,12 @@ app cfg = bracket setupDatabasePool destroyAllResources
                 withResource pool doMigrations >>= migrateOrThrow
                 return pool
 
-api :: Proxy API
-api = Proxy
-
-server :: Pool PG.Connection -> Server API
+server :: Pool PG.Connection -> Server AppAPI
 server pool =
-        return "Hello World!"
-                :<|> ( liftIO
-                     . withResource pool
-                     $ \conn ->
-                               head
-                                       . head
-                                       <$> (PG.query_ conn "SELECT version();" :: IO
-                                                     [[String]]
-                                           )
-                     )
+        return apiDocs
+                :<|> undefined
+                :<|> undefined
+                :<|> undefined
+                :<|> undefined
+                :<|> undefined
+                :<|> undefined
