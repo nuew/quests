@@ -51,7 +51,7 @@ app cfg = bracket setupDatabasePool destroyAllResources
                 withResource pool doMigrations >>= migrateOrThrow
                 return pool
 
-server :: Pool PG.Connection -> Server AppAPI
+server :: Pool PG.Connection -> Server ApiRoot
 server pool =
         return apiDocs
                 :<|> undefined
