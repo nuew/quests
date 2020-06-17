@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeOperators #-}
 module Network.Quests.API where
 
-import           Data.Aeson.TH
 import qualified Data.Text                     as T
 import           Network.Quests.API.Bookshelves
 import           Network.Quests.API.Chats

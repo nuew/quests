@@ -5,6 +5,8 @@
 {-# LANGUAGE TypeOperators #-}
 module Network.Quests.API.Common where
 
+import           Data.Aeson.Encoding
+import           Data.Aeson.Types
 import qualified Data.ByteString               as B
 import qualified Data.Text                     as T
 import           Network.URI
@@ -34,6 +36,10 @@ type SimpleRestApi a = RestCollection a :<|> RestObject a
 type IdRestApi a = Capture "id" Integer :> SimpleRestApi a
 type SlugRestApi a = Capture "slug" T.Text :> SimpleRestApi a
 
+instance FromJSON URI where
+  parseJSON = withText "URI" $ failNothing . parseURI . T.unpack
+    where failNothing = maybe (fail "couldn't parse as URI") return
+
 instance ToCapture (Capture "id" Integer) where
   toCapture _ =
     DocCapture "id" "The numeric identifier that corresponds to the resource."
@@ -41,8 +47,14 @@ instance ToCapture (Capture "id" Integer) where
 instance ToCapture (Capture "slug" T.Text) where
   toCapture _ = DocCapture "slug" "The slug that corresponds to the resource."
 
+uriToText uri = T.pack $ uriToString id uri ""
+
 instance ToHttpApiData URI where
-  toUrlPiece uri = T.pack $ uriToString id uri ""
+  toUrlPiece = uriToText
+
+instance ToJSON URI where
+  toJSON = String . uriToText
+  toEncoding = text . uriToText
 
 instance ToSample URI where
   toSamples _ =
