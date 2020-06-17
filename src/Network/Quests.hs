@@ -1,11 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Lib
+module Network.Quests
         ( AppConfiguration(..)
         , app
         )
 where
 
-import           API
 import           Control.Exception.Base
 import           Control.Monad.IO.Class
 import           Data.Aeson
@@ -15,6 +14,7 @@ import           Data.Pool
 import           Data.Time.Clock
 import qualified Database.PostgreSQL.Simple    as PG
 import           Database.PostgreSQL.Simple.Migration
+import           Network.Quests.API
 import           Servant
 import           Servant.Auth.Server
 

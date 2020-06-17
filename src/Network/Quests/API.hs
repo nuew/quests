@@ -4,7 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-module API where
+module Network.Quests.API where
 
 import           Data.Aeson.TH
 import qualified Data.ByteString               as B

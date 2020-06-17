@@ -12,7 +12,7 @@ import           Data.String
 import           Data.Time.Clock
 import           Data.Time.Format
 import           Data.Version
-import qualified Lib                           as L
+import qualified Network.Quests                as Q
 import qualified Network.Socket                as S
 import           Network.Wai
 import           Network.Wai.Handler.Warp
@@ -184,7 +184,7 @@ startSentry cfg = mangleConfig <$> sentryService cfg
 main :: IO ()
 main = do
         cfg <- loadConfiguration >>= startSentry
-        app <- L.app $ appCfgOfCfg cfg
+        app <- Q.app $ appCfgOfCfg cfg
         getWarp cfg app
     where
         unixSocket path = do
@@ -196,12 +196,12 @@ main = do
                 Just path -> \a -> bracket (unixSocket path) S.close
                         $ \s -> runSettingsSocket (warpSettings cfg) s a
                 Nothing -> runSettings (warpSettings cfg)
-        appCfgOfCfg cfg = L.AppConfiguration
-                { L.databaseConnection   = databaseConnection cfg
-                , L.databasePoolMaxConns = databasePoolMaxConns cfg
-                , L.databasePoolStripes  = databasePoolStripes cfg
-                , L.databasePoolTimeout  = databasePoolTimeout cfg
-                , L.secretKey            = case secretKey cfg of
+        appCfgOfCfg cfg = Q.AppConfiguration
+                { Q.databaseConnection   = databaseConnection cfg
+                , Q.databasePoolMaxConns = databasePoolMaxConns cfg
+                , Q.databasePoolStripes  = databasePoolStripes cfg
+                , Q.databasePoolTimeout  = databasePoolTimeout cfg
+                , Q.secretKey            = case secretKey cfg of
                         Just sk -> sk
                         Nothing -> error "SECRET_KEY must be specified!"
                 }
