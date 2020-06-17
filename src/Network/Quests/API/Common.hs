@@ -8,6 +8,9 @@ module Network.Quests.API.Common where
 import           Data.Aeson.Encoding
 import           Data.Aeson.Types
 import qualified Data.ByteString               as B
+import           Data.Char
+import           Data.List
+import           Data.Maybe
 import qualified Data.Text                     as T
 import           Network.URI
 import           Servant
@@ -62,3 +65,12 @@ instance ToSample URI where
 
 instance ToSample T.Text where
   toSamples _ = singleSample "Lorem ipsum dolor sit amet"
+
+jsonOptions :: String -> Options
+jsonOptions prefix = defaultOptions { fieldLabelModifier = stripPrefixLower prefix
+                                    , constructorTagModifier = lowerFirst
+                                    , unwrapUnaryRecords = True
+                                    }
+    where
+      lowerFirst (x:xs) = toLower x:xs
+      stripPrefixLower prefix = lowerFirst . fromJust . stripPrefix prefix

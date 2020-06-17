@@ -12,4 +12,4 @@ instance RestApi Bookshelf where
 instance ToSample Bookshelf where
         toSamples _ = noSamples
 
-$(deriveJSON defaultOptions ''Bookshelf)
+$(deriveJSON (jsonOptions "bookshelf") ''Bookshelf)

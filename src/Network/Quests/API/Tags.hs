@@ -12,4 +12,4 @@ instance RestApi Tag where
 instance ToSample Tag where
         toSamples _ = noSamples
 
-$(deriveJSON defaultOptions ''Tag)
+$(deriveJSON (jsonOptions "tag") ''Tag)

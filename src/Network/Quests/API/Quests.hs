@@ -12,4 +12,4 @@ instance RestApi Quest where
 instance ToSample Quest where
         toSamples _ = noSamples
 
-$(deriveJSON defaultOptions ''Quest)
+$(deriveJSON (jsonOptions "quest") ''Quest)

@@ -12,4 +12,4 @@ instance RestApi Chat where
 instance ToSample Chat where
         toSamples _ = noSamples
 
-$(deriveJSON defaultOptions ''Chat)
+$(deriveJSON (jsonOptions "chat") ''Chat)

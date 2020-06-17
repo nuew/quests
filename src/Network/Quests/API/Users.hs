@@ -35,4 +35,4 @@ instance ToSample User where
         time3 = read "2000-01-01 00:00:00-05:00" :: UTCTime
         time4 = read "2020-06-16 16:27:00-04:00" :: UTCTime
 
-$(deriveJSON defaultOptions ''User)
+$(deriveJSON (jsonOptions "user") ''User)
