@@ -67,10 +67,13 @@ instance ToSample T.Text where
   toSamples _ = singleSample "Lorem ipsum dolor sit amet"
 
 jsonOptions :: String -> Options
-jsonOptions prefix = defaultOptions { fieldLabelModifier = stripPrefixLower prefix
-                                    , constructorTagModifier = lowerFirst
+jsonOptions prefix = defaultOptions { fieldLabelModifier = stripPrefixL prefix
+                                    , constructorTagModifier = stripPrefixU prefix
                                     , unwrapUnaryRecords = True
                                     }
     where
-      lowerFirst (x:xs) = toLower x:xs
-      stripPrefixLower prefix = lowerFirst . fromJust . stripPrefix prefix
+      mapFirst f (x:xs) = f x : xs
+      mapFirst f [] = []
+
+      stripPrefixL prefix = (mapFirst toLower) . fromJust . stripPrefix prefix
+      stripPrefixU = stripPrefixL . mapFirst toUpper
