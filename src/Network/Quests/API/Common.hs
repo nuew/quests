@@ -1,18 +1,16 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module Network.Quests.API.Common where
 
-import           Data.Aeson.Encoding
-import           Data.Aeson.Types
+import           Data.Aeson.TH
 import qualified Data.ByteString               as B
-import           Data.Char
-import           Data.List
-import           Data.Maybe
 import qualified Data.Text                     as T
 import           Network.URI
+import           Network.Quests.API.JSON
 import           Servant
 import           Servant.Docs
 
@@ -26,22 +24,8 @@ class RestApi a where
      type Update a :: *
      type Update a = a
 
-type RestCollection a =
-     Get '[JSON] [a] :<|>
-     ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (Headers '[Header "Location" URI] a)
-
-type RestObject a =
-     Get '[JSON] a :<|>
-     ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
-     DeleteNoContent '[JSON] NoContent
-
-type SimpleRestApi a = RestCollection a :<|> RestObject a
-type IdRestApi a = Capture "id" Integer :> SimpleRestApi a
-type SlugRestApi a = Capture "slug" T.Text :> SimpleRestApi a
-
-instance FromJSON URI where
-  parseJSON = withText "URI" $ failNothing . parseURI . T.unpack
-    where failNothing = maybe (fail "couldn't parse as URI") return
+data Visibility = Public | Unlisted | Private
+  deriving (Eq, Ord, Enum, Bounded)
 
 instance ToCapture (Capture "id" Integer) where
   toCapture _ =
@@ -50,14 +34,8 @@ instance ToCapture (Capture "id" Integer) where
 instance ToCapture (Capture "slug" T.Text) where
   toCapture _ = DocCapture "slug" "The slug that corresponds to the resource."
 
-uriToText uri = T.pack $ uriToString id uri ""
-
 instance ToHttpApiData URI where
   toUrlPiece = uriToText
-
-instance ToJSON URI where
-  toJSON = String . uriToText
-  toEncoding = text . uriToText
 
 instance ToSample URI where
   toSamples _ =
@@ -66,14 +44,4 @@ instance ToSample URI where
 instance ToSample T.Text where
   toSamples _ = singleSample "Lorem ipsum dolor sit amet"
 
-jsonOptions :: String -> Options
-jsonOptions prefix = defaultOptions { fieldLabelModifier = stripPrefixL prefix
-                                    , constructorTagModifier = stripPrefixU prefix
-                                    , unwrapUnaryRecords = True
-                                    }
-    where
-      mapFirst f (x:xs) = f x : xs
-      mapFirst f [] = []
-
-      stripPrefixL prefix = (mapFirst toLower) . fromJust . stripPrefix prefix
-      stripPrefixU = stripPrefixL . mapFirst toUpper
+$(deriveJSON (jsonOptions "") ''Visibility)

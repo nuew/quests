@@ -20,6 +20,7 @@ library
                      , Network.Quests.API.Bookshelves
                      , Network.Quests.API.Chats
                      , Network.Quests.API.Common
+                     , Network.Quests.API.JSON
                      , Network.Quests.API.Quests
                      , Network.Quests.API.Tags
                      , Network.Quests.API.Users

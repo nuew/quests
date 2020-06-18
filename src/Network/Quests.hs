@@ -52,11 +52,4 @@ app cfg = bracket setupDatabasePool destroyAllResources
                 return pool
 
 server :: Pool PG.Connection -> Server ApiRoot
-server pool =
-        return apiDocs
-                :<|> undefined
-                :<|> undefined
-                :<|> undefined
-                :<|> undefined
-                :<|> undefined
-                :<|> undefined
+server pool = return apiDocs :<|> undefined
