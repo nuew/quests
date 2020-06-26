@@ -20,7 +20,7 @@ jsonOptions prefix = defaultOptions { fieldLabelModifier = stripPrefixL prefix
       mapFirst f (x:xs) = f x : xs
       mapFirst f [] = []
 
-      stripPrefixL prefix = mapFirst toLower . fromJust . stripPrefix prefix
+      stripPrefixL prefix = mapFirst toLower . maybe "" id . stripPrefix prefix
       stripPrefixU = stripPrefixL . mapFirst toUpper
 
 instance FromJSON URI where

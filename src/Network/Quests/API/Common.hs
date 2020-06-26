@@ -4,6 +4,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Network.Quests.API.Common where
 
 import           Data.Aeson.TH
@@ -15,14 +16,17 @@ import           Servant
 import           Servant.Docs
 
 class RestApi a where
-     type Short a :: *
-     type Short a = a
+    type Ref a :: *
+    type Ref a = URI
 
-     type Create a :: *
-     type Create a = a
+    type Short a :: *
+    type Short a = Ref a
 
-     type Update a :: *
-     type Update a = a
+    type Create a :: *
+    type Create a = a
+
+    type Update a :: *
+    type Update a = a
 
 data Visibility = Public | Unlisted | Private
   deriving (Eq, Ord, Enum, Bounded)
