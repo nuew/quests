@@ -31,9 +31,13 @@ class RestApi a where
 data Visibility = Public | Unlisted | Private
   deriving (Eq, Ord, Enum, Bounded)
 
-instance ToCapture (Capture "id" Integer) where
+instance ToCapture (Capture "id" Int) where
   toCapture _ =
     DocCapture "id" "The numeric identifier that corresponds to the resource."
+
+instance ToCapture (Capture "index" Int) where
+  toCapture _ =
+    DocCapture "index" "The index of the resource within its container."
 
 instance ToCapture (Capture "slug" T.Text) where
   toCapture _ = DocCapture "slug" "The slug that corresponds to the resource."

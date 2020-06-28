@@ -12,25 +12,42 @@ import           Network.Quests.API.Users
 import           Servant
 import           Servant.Docs
 
+type LocationHeader a = Headers '[Header "Location" URI] a
+
 type RestCollection a =
   Get '[JSON] [a] :<|>
-  ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (Headers '[Header "Location" URI] a)
+  ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (LocationHeader a)
+
+type RestCollectionObject a =
+  Get '[JSON] a :<|>
+  ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (LocationHeader a) :<|>
+  ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
+  DeleteNoContent '[JSON] NoContent
 
 type RestObject a =
   Get '[JSON] a :<|>
   ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
   DeleteNoContent '[JSON] NoContent
 
-type IdRestObject a =  Capture "id" Integer :> RestObject a
+type IdRestObject a = Capture "id" Int :> RestObject a
 type SlugRestObject a = Capture "slug" T.Text :> RestObject a
 
 type APIDocumentation = Get '[PlainText] T.Text
 type BookshelvesAPI = RestCollection Bookshelf :<|> IdRestObject Bookshelf
 type ChatsAPI = RestCollection Chat :<|> IdRestObject Chat
-type QuestsAPI = RestCollection Quest :<|> SlugRestObject Quest
 type TagsAPI = RestCollection Tag :<|> SlugRestObject Tag
 type UsersAPI = RestCollection User :<|> SlugRestObject User
 type WebsocketAPI = GetNoContent '[PlainText] NoContent
+
+type QuestsAPI = 
+  RestCollection Quest :<|>
+  Capture "id" Int :> (
+    RestCollectionObject Quest :<|>
+    Capture "index" Int :> (
+      RestCollectionObject Chapter :<|>
+      Capture "index" Int :> RestObject Passage
+    )
+  )
 
 type ApiVersion1 =
   "bookshelves" :> BookshelvesAPI :<|>
