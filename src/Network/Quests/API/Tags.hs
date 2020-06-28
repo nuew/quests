@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-module Network.Quests.API.Tags (Tag) where
+module Network.Quests.API.Tags
+  ( Tag
+  )
+where
 
 import           Data.Aeson.TH
 import qualified Data.Text                     as T
@@ -14,6 +17,6 @@ newtype Tag = Tag T.Text
 instance RestApi Tag where
 
 instance ToSample Tag where
-        toSamples _ = samples [Tag "nsfw", Tag "art quest"]
+  toSamples _ = samples [Tag "nsfw", Tag "art quest"]
 
 $(deriveJSON (jsonOptions "tag") ''Tag)

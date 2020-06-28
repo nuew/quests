@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Network.Quests.API.Chats (Chat) where
+module Network.Quests.API.Chats
+  ( Chat
+  )
+where
 
 import           Data.Aeson.TH
 import qualified Data.Text                     as T
@@ -25,7 +28,10 @@ data Chat = Chat { chatTopic :: T.Text
 instance RestApi Chat where
 
 instance ToSample Chat where
-        toSamples _ = singleSample $ Chat "Discussion" (ChatAssociationTag $ URI "" Nothing "/tags/nsfw" "" "") []
+  toSamples _ = singleSample $ Chat
+    "Discussion"
+    (ChatAssociationTag $ URI "" Nothing "/tags/nsfw" "" "")
+    []
 
 $(deriveJSON (jsonOptions "chatAssociation") ''ChatAssociation)
 $(deriveJSON (jsonOptions "chat") ''Chat)

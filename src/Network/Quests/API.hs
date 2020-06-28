@@ -13,13 +13,13 @@ import           Servant
 import           Servant.Docs
 
 type RestCollection a =
-     Get '[JSON] [a] :<|>
-     ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (Headers '[Header "Location" URI] a)
+  Get '[JSON] [a] :<|>
+  ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (Headers '[Header "Location" URI] a)
 
 type RestObject a =
-     Get '[JSON] a :<|>
-     ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
-     DeleteNoContent '[JSON] NoContent
+  Get '[JSON] a :<|>
+  ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
+  DeleteNoContent '[JSON] NoContent
 
 type IdRestObject a =  Capture "id" Integer :> RestObject a
 type SlugRestObject a = Capture "slug" T.Text :> RestObject a
@@ -33,12 +33,12 @@ type UsersAPI = RestCollection User :<|> SlugRestObject User
 type WebsocketAPI = GetNoContent '[PlainText] NoContent
 
 type ApiVersion1 =
-    "bookshelves" :> BookshelvesAPI :<|>
-    "chats" :> ChatsAPI :<|>
-    "quests" :> QuestsAPI :<|>
-    "tags" :> TagsAPI :<|>
-    "users" :> UsersAPI :<|>
-    "ws" :> WebsocketAPI
+  "bookshelves" :> BookshelvesAPI :<|>
+  "chats" :> ChatsAPI :<|>
+  "quests" :> QuestsAPI :<|>
+  "tags" :> TagsAPI :<|>
+  "users" :> UsersAPI :<|>
+  "ws" :> WebsocketAPI
 
 type ApiRoot = APIDocumentation :<|> "v1" :> ApiVersion1
 

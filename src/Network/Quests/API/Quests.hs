@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Network.Quests.API.Quests (Quest) where
+module Network.Quests.API.Quests
+  ( Quest
+  )
+where
 
 import           Data.Aeson.TH
 import qualified Data.Text                     as T
@@ -20,6 +23,6 @@ data Quest = Quest { questName :: T.Text
 instance RestApi Quest where
 
 instance ToSample Quest where
-        toSamples _ = singleSample $ Quest "Sample Quest" "" Nothing Public []
+  toSamples _ = singleSample $ Quest "Sample Quest" "" Nothing Public []
 
 $(deriveJSON (jsonOptions "quest") ''Quest)

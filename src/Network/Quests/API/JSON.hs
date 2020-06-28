@@ -12,21 +12,22 @@ import           Network.URI
 uriToText uri = T.pack $ uriToString id uri ""
 
 jsonOptions :: String -> Options
-jsonOptions prefix = defaultOptions { fieldLabelModifier = stripPrefixL prefix
-                                    , constructorTagModifier = stripPrefixU prefix
-                                    , unwrapUnaryRecords = True
-                                    }
-    where
-      mapFirst f (x:xs) = f x : xs
-      mapFirst f [] = []
+jsonOptions prefix = defaultOptions
+  { fieldLabelModifier     = stripPrefixL prefix
+  , constructorTagModifier = stripPrefixU prefix
+  , unwrapUnaryRecords     = True
+  }
+ where
+  mapFirst f (x : xs) = f x : xs
+  mapFirst f []       = []
 
-      stripPrefixL prefix = mapFirst toLower . maybe "" id . stripPrefix prefix
-      stripPrefixU = stripPrefixL . mapFirst toUpper
+  stripPrefixL prefix = mapFirst toLower . fromMaybe "" . stripPrefix prefix
+  stripPrefixU = stripPrefixL . mapFirst toUpper
 
 instance FromJSON URI where
   parseJSON = withText "URI" $ failNothing . parseURI . T.unpack
     where failNothing = maybe (fail "couldn't parse as URI") return
 
 instance ToJSON URI where
-  toJSON = String . uriToText
+  toJSON     = String . uriToText
   toEncoding = text . uriToText

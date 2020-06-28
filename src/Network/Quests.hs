@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Network.Quests
-        ( AppConfiguration(..)
-        , app
-        )
+  ( AppConfiguration(..)
+  , app
+  )
 where
 
 import           Control.Exception.Base
@@ -28,28 +28,26 @@ data AppConfiguration = AppConfiguration
 
 app :: AppConfiguration -> IO Application
 app cfg = bracket setupDatabasePool destroyAllResources
-        $ \pool -> return (serveWithContext api ctx $ server pool)
-    where
-        jwtCtx = defaultJWTSettings $ fromSecret $ secretKey cfg
-        ctx    = jwtCtx :. defaultCookieSettings :. EmptyContext
+  $ \pool -> return (serveWithContext api ctx $ server pool)
+ where
+  jwtCtx = defaultJWTSettings $ fromSecret $ secretKey cfg
+  ctx    = jwtCtx :. defaultCookieSettings :. EmptyContext
 
-        migrateOrThrow f = case f of
-                MigrationSuccess -> return ()
-                MigrationError e -> error e
-        migrationCmds =
-                [MigrationInitialization, MigrationDirectory "./migrations/"]
-        doMigrations conn = PG.withTransaction conn $ do
-                PG.execute_ conn "SET LOCAL client_min_messages = WARNING;"
-                runMigrations False conn migrationCmds
-        setupDatabasePool = do
-                pool <- createPool
-                        (PG.connectPostgreSQL $ databaseConnection cfg)
-                        PG.close
-                        (databasePoolStripes cfg)
-                        (databasePoolTimeout cfg)
-                        (databasePoolMaxConns cfg)
-                withResource pool doMigrations >>= migrateOrThrow
-                return pool
+  migrateOrThrow f = case f of
+    MigrationSuccess -> return ()
+    MigrationError e -> error e
+  migrationCmds = [MigrationInitialization, MigrationDirectory "./migrations/"]
+  doMigrations conn = PG.withTransaction conn $ do
+    PG.execute_ conn "SET LOCAL client_min_messages = WARNING;"
+    runMigrations False conn migrationCmds
+  setupDatabasePool = do
+    pool <- createPool (PG.connectPostgreSQL $ databaseConnection cfg)
+                       PG.close
+                       (databasePoolStripes cfg)
+                       (databasePoolTimeout cfg)
+                       (databasePoolMaxConns cfg)
+    withResource pool doMigrations >>= migrateOrThrow
+    return pool
 
 server :: Pool PG.Connection -> Server ApiRoot
 server pool = return apiDocs :<|> undefined

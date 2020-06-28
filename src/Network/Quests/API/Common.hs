@@ -16,17 +16,17 @@ import           Servant
 import           Servant.Docs
 
 class RestApi a where
-    type Ref a :: *
-    type Ref a = URI
+  type Ref a :: *
+  type Ref a = URI
 
-    type Short a :: *
-    type Short a = Ref a
+  type Short a :: *
+  type Short a = Ref a
 
-    type Create a :: *
-    type Create a = a
+  type Create a :: *
+  type Create a = a
 
-    type Update a :: *
-    type Update a = a
+  type Update a :: *
+  type Update a = a
 
 data Visibility = Public | Unlisted | Private
   deriving (Eq, Ord, Enum, Bounded)

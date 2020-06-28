@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Quests.API.Bookshelves
-        ( Bookshelf
-        )
+  ( Bookshelf
+  )
 where
 
 import           Data.Aeson.TH
@@ -23,6 +23,7 @@ data Bookshelf = Bookshelf { bookshelfName :: T.Text
 instance RestApi Bookshelf where
 
 instance ToSample Bookshelf where
-        toSamples _ = singleSample $ Bookshelf "Likes" "Stories I liked." '❤' False Public []
+  toSamples _ =
+    singleSample $ Bookshelf "Likes" "Stories I liked." '❤' False Public []
 
 $(deriveJSON (jsonOptions "bookshelf") ''Bookshelf)
