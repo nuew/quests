@@ -1,7 +1,8 @@
-CREATE TYPE chat_role AS ENUM ('Moderator', 'Voiced');
+CREATE TYPE chat_role AS ENUM ('Owner', 'Moderator', 'Voiced');
 CREATE TYPE quest_role AS ENUM ('Author', 'Participant', 'Guest');
 CREATE TYPE visibility AS ENUM ('Public', 'Unlisted', 'Private');
 CREATE TYPE passagetype AS ENUM ('Chat', 'Dice', 'Poll', 'Textual');
+CREATE TYPE electionsys AS ENUM ('Approval', 'Borda', 'FPTP', 'Schulze', 'STV');
 
 -- Users
 CREATE TABLE users (
@@ -41,7 +42,6 @@ CREATE TABLE sessions (
 CREATE TABLE chats (
     id              SERIAL      PRIMARY KEY,
     topic           TEXT        NOT NULL,
-    allow_anon      BOOLEAN     NOT NULL,
     open            BOOLEAN     NOT NULL DEFAULT True,
     voiced_only     BOOLEAN     NOT NULL DEFAULT False
 );
@@ -52,6 +52,7 @@ CREATE TABLE chat_roles (
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     role            CHAT_ROLE   NOT NULL,
+
     PRIMARY KEY (chat_id, user_id)
 );
 
@@ -59,14 +60,42 @@ CREATE TABLE messages (
     id              SERIAL      PRIMARY KEY,
     chat_id         INT         NOT NULL REFERENCES chats
                                     ON DELETE CASCADE,
-    user_id         INT         NULL REFERENCES users
-                                    ON DELETE SET NULL,
-    session_id      INT         NOT NULL REFERENCES sessions
-                                    ON DELETE RESTRICT,
+    user_id         INT         NOT NULL REFERENCES users,
     posted_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_updated    TIMESTAMPTZ NULL,
+    last_updated    TIMESTAMPTZ NOT NULL DEFAULT now(),
     message         TEXT        NOT NULL,
     attachment      TEXT        NULL
+);
+
+-- Polls
+CREATE TABLE polls (
+    id              SERIAL      PRIMARY KEY,
+    system          ELECTIONSYS NOT NULL,
+    prompt          TEXT        NOT NULL,
+    open            BOOLEAN     NOT NULL DEFAULT True,
+    winners         INT         NOT NULL DEFAULT 1 CHECK (winners > 0),
+    submissions     BOOLEAN     NOT NULL DEFAULT True
+);
+
+CREATE TABLE poll_choices (
+    id              SERIAL      PRIMARY KEY,
+    poll_id         INT         NOT NULL REFERENCES polls
+                                    ON DELETE CASCADE,
+    user_id         INT         NOT NULL REFERENCES users,
+    choice          TEXT        NOT NULL,
+    cancel_reason   TEXT        NULL, -- NULL if not cancelled
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_updated    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE poll_ballot_choice (
+    choice_id       INT         NOT NULL REFERENCES poll_choices
+                                    ON DELETE CASCADE,
+    user_id         INT         NOT NULL REFERENCES users
+                                    ON DELETE CASCADE,
+    ranking         SMALLINT    NULL, -- NULL if the election method in use doesn't use rankings.
+
+    PRIMARY KEY (choice_id, user_id)
 );
 
 -- Quests
@@ -87,6 +116,7 @@ CREATE TABLE quest_roles (
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     role            QUEST_ROLE  NOT NULL,
+
     PRIMARY KEY (quest_id, user_id)
 );
 
@@ -95,7 +125,7 @@ CREATE TABLE chapters (
     quest_id        INT         NOT NULL REFERENCES quests
                                     ON DELETE CASCADE,
     name            TEXT        NOT NULL,
-    position        INT         NOT NULL,
+    position        SMALLINT    NOT NULL,
     is_appendix     BOOLEAN     NOT NULL,
 
     UNIQUE (quest_id, position, is_appendix)
@@ -106,9 +136,9 @@ CREATE TABLE passages (
     passagetype     PASSAGETYPE NOT NULL,
     chapter_id      INT         NOT NULL REFERENCES chapters
                                     ON DELETE CASCADE,
-    position        INT         NOT NULL,
+    position        SMALLINT    NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_updated    TIMESTAMPTZ NOT NULL,
+    last_updated    TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     UNIQUE (id, passagetype),
     UNIQUE (chapter_id, position)
@@ -118,8 +148,7 @@ CREATE TABLE chat_passages (
     id              INT         PRIMARY KEY,
     passagetype     PASSAGETYPE NOT NULL DEFAULT 'Chat'
                                     CHECK (passagetype = 'Chat'),
-    chat_id         INT         NOT NULL REFERENCES chats
-                                    ON DELETE RESTRICT,
+    chat_id         INT         NOT NULL REFERENCES chats,
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
 );
@@ -128,10 +157,10 @@ CREATE TABLE dice_passages (
     id              INT         PRIMARY KEY,
     passagetype     PASSAGETYPE NOT NULL DEFAULT 'Dice'
                                     CHECK (passagetype = 'Dice'),
-    best_of         SMALLINT    NOT NULL,
-    quantity        SMALLINT    NOT NULL,
-    sides           SMALLINT    NOT NULL,
-    threshold       SMALLINT    NOT NULL,
+    best_of         SMALLINT    NOT NULL CHECK (best_of < 0),
+    quantity        SMALLINT    NOT NULL CHECK (quantity < 0),
+    sides           SMALLINT    NOT NULL CHECK (sides < 0),
+    threshold       SMALLINT    NULL CHECK (threshold < 0),
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
 );
@@ -140,16 +169,16 @@ CREATE TABLE dice_rolls (
     id              SERIAL      PRIMARY KEY,
     passage_id      INT         NOT NULL REFERENCES dice_passages
                                     ON DELETE CASCADE,
-    user_id         INT         NULL REFERENCES users
-                                    ON DELETE SET NULL,
+    user_id         INT         NOT NULL REFERENCES users,
     values          SMALLINT[]  NOT NULL, -- Denormalized because normalizing this would be stupid.
-    position        INT         NOT NULL
+    position        SMALLINT    NOT NULL
 );
 
 CREATE TABLE poll_passages (
     id              INT         PRIMARY KEY,
     passagetype     PASSAGETYPE NOT NULL DEFAULT 'Dice'
                                     CHECK (passagetype = 'Dice'),
+    poll_id         INT         NOT NULL REFERENCES polls,
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
 );
@@ -188,7 +217,7 @@ CREATE TABLE bookshelves (
     icon            CHAR        NOT NULL,
     email_updates   BOOLEAN     NOT NULL,
     visibility      VISIBILITY  NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE bookshelf_items (
@@ -196,7 +225,7 @@ CREATE TABLE bookshelf_items (
                                     ON DELETE CASCADE,
     quest_id        INT         NOT NULL REFERENCES quests
                                     ON DELETE CASCADE,
-    added_at        TIMESTAMPTZ NOT NULL,
+    added_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     PRIMARY KEY (bookshelf_id, quest_id)
 );
@@ -207,8 +236,7 @@ CREATE TABLE bans (
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by      INT         NULL REFERENCES users
-                                    ON DELETE SET NULL,
+    created_by      INT         NOT NULL REFERENCES users,
     expires_at      TIMESTAMPTZ NULL, -- NULL for never
     reason          TEXT        NOT NULL,
     global          BOOLEAN     NOT NULL DEFAULT False
