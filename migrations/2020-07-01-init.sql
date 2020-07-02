@@ -1,8 +1,9 @@
 CREATE TYPE chat_role AS ENUM ('Owner', 'Moderator', 'Voiced');
-CREATE TYPE quest_role AS ENUM ('Author', 'Participant', 'Guest');
-CREATE TYPE visibility AS ENUM ('Public', 'Unlisted', 'Private');
-CREATE TYPE passagetype AS ENUM ('Chat', 'Dice', 'Poll', 'Textual');
 CREATE TYPE electionsys AS ENUM ('Approval', 'Borda', 'FPTP', 'Schulze', 'STV');
+CREATE TYPE passagetype AS ENUM ('Chat', 'Dice', 'Poll', 'Textual');
+CREATE TYPE quest_role AS ENUM ('Author', 'Participant', 'Guest');
+CREATE TYPE shelf_role AS ENUM ('Editor', 'Visitor');
+CREATE TYPE visibility AS ENUM ('Public', 'Unlisted', 'Private');
 
 -- Users
 CREATE TABLE users (
@@ -102,7 +103,6 @@ CREATE TABLE poll_ballot_choice (
 CREATE TABLE quests (
     id              SERIAL      PRIMARY KEY,
     name            TEXT        NOT NULL,
-    slug            TEXT        NOT NULL,
     teaser          TEXT        NOT NULL,
     banner          TEXT        NULL,
     visibility      VISIBILITY  NOT NULL,
@@ -157,10 +157,10 @@ CREATE TABLE dice_passages (
     id              INT         PRIMARY KEY,
     passagetype     PASSAGETYPE NOT NULL DEFAULT 'Dice'
                                     CHECK (passagetype = 'Dice'),
-    best_of         SMALLINT    NOT NULL CHECK (best_of < 0),
-    quantity        SMALLINT    NOT NULL CHECK (quantity < 0),
-    sides           SMALLINT    NOT NULL CHECK (sides < 0),
-    threshold       SMALLINT    NULL CHECK (threshold < 0),
+    best_of         SMALLINT    NOT NULL CHECK (best_of > 0),
+    quantity        SMALLINT    NOT NULL CHECK (quantity > 0),
+    sides           SMALLINT    NOT NULL CHECK (sides > 0),
+    threshold       SMALLINT    NULL CHECK (threshold > 0),
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
 );
@@ -176,8 +176,8 @@ CREATE TABLE dice_rolls (
 
 CREATE TABLE poll_passages (
     id              INT         PRIMARY KEY,
-    passagetype     PASSAGETYPE NOT NULL DEFAULT 'Dice'
-                                    CHECK (passagetype = 'Dice'),
+    passagetype     PASSAGETYPE NOT NULL DEFAULT 'Poll'
+                                    CHECK (passagetype = 'Poll'),
     poll_id         INT         NOT NULL REFERENCES polls,
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
@@ -191,6 +191,20 @@ CREATE TABLE textual_passages (
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
 );
+
+CREATE VIEW absorbed_passages AS
+    SELECT p.*, c.chat_id, d.best_of, d.quantity, d.sides, d.threshold,
+        v.poll_id, t.contents
+    FROM passages p
+    LEFT JOIN chat_passages c ON p.id = c.id
+    LEFT JOIN dice_passages d ON p.id = d.id
+    LEFT JOIN poll_passages v ON p.id = v.id
+    LEFT JOIN textual_passages t ON p.id = t.id
+    WHERE
+        c.id IS NOT NULL OR
+        d.id IS NOT NULL OR
+        v.id IS NOT NULL OR
+        t.id IS NOT NULL;
 
 -- Tags
 CREATE TABLE tags (
@@ -218,6 +232,16 @@ CREATE TABLE bookshelves (
     email_updates   BOOLEAN     NOT NULL,
     visibility      VISIBILITY  NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE bookshelf_roles (
+    bookshelf_id    INT         NOT NULL REFERENCES bookshelves
+                                    ON DELETE CASCADE,
+    user_id         INT         NOT NULL REFERENCES users
+                                    ON DELETE CASCADE,
+    role            SHELF_ROLE  NOT NULL,
+
+    PRIMARY KEY (bookshelf_id, user_id)
 );
 
 CREATE TABLE bookshelf_items (
@@ -259,3 +283,13 @@ CREATE TABLE chat_bans (
 
     PRIMARY KEY (ban_id, chat_id)
 );
+
+CREATE VIEW active_quest_bans AS
+    SELECT b.*, q.quest_id
+    FROM bans b, quest_bans q
+    WHERE now() < b.expires_at AND (b.global = True OR b.id = q.ban_id);
+
+CREATE VIEW active_chat_bans AS
+    SELECT b.*, c.chat_id
+    FROM bans b, chat_bans c
+    WHERE now() < b.expires_at AND (b.global = True OR b.id = c.ban_id);
