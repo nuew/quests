@@ -3,7 +3,8 @@
 {-# LANGUAGE TypeFamilies #-}
 module Network.Quests.API.Users
   ( Session
-  , User
+  , User (..)
+  , CreateUser (..)
   )
 where
 

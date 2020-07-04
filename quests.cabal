@@ -26,13 +26,17 @@ library
                      , Network.Quests.API.Quests
                      , Network.Quests.API.Tags
                      , Network.Quests.API.Users
+                     , Network.Quests.Server
   build-depends:       base >= 4.7 && < 5
                      , aeson
+                     , argon2
                      , bytestring
+                     , entropy
                      , network-uri
                      , postgresql-simple
                      , postgresql-simple-migration
                      , resource-pool
+                     , servant
                      , servant-auth-server
                      , servant-docs
                      , servant-server

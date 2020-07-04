@@ -1,5 +1,3 @@
-BEGIN;
-
     INSERT INTO users (name, email, password_hash) VALUES
         ('nuew', 'nuew@nuew.net', ''),
         ('test', 'test@example.com', '');
@@ -79,5 +77,3 @@ BEGIN;
         (1, 1);
     INSERT INTO chat_bans (ban_id, chat_id) VALUES
         (1, 1);
-
-COMMIT;

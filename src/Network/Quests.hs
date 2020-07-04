@@ -15,6 +15,7 @@ import           Data.Time.Clock
 import qualified Database.PostgreSQL.Simple    as PG
 import           Database.PostgreSQL.Simple.Migration
 import           Network.Quests.API
+import           Network.Quests.Server
 import           Servant
 import           Servant.Auth.Server
 
@@ -50,4 +51,4 @@ app cfg = bracket setupDatabasePool destroyAllResources
     return pool
 
 server :: Pool PG.Connection -> Server ApiRoot
-server pool = return apiDocs :<|> undefined
+server pool = return apiDocs :<|> apiV1Server pool
