@@ -2,62 +2,79 @@
 {-# LANGUAGE TypeOperators #-}
 module Network.Quests.API where
 
+import           Data.Int
 import qualified Data.Text                     as T
+import           Network.Quests.API.Bans
 import           Network.Quests.API.Bookshelves
 import           Network.Quests.API.Chats
 import           Network.Quests.API.Common
+import           Network.Quests.API.Polls
 import           Network.Quests.API.Quests
 import           Network.Quests.API.Tags
 import           Network.Quests.API.Users
 import           Servant
 import           Servant.Docs
 
-type LocationHeader a = Headers '[Header "Location" URI] a
+type HierarchicalApi a b c d =
+  Get '[JSON] [Short a] :<|>
+  ReqBody '[JSON] (Create a) :>
+    PostCreated '[JSON] (Headers '[Header "Location" URI] a) :<|>
+  Capture b c :> (
+    Get '[JSON] a :<|>
+    ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
+    DeleteNoContent '[JSON] NoContent :<|>
+    d
+  )
 
-type RestCollection a =
-  Get '[JSON] [a] :<|>
-  ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (LocationHeader a)
+type SimpleHierarchicalApi a = HierarchicalApi a "id" Int32 EmptyAPI
 
-type RestCollectionObject a =
-  Get '[JSON] a :<|>
-  ReqBody '[JSON] (Create a) :> PostCreated '[JSON] (LocationHeader a) :<|>
-  ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
-  DeleteNoContent '[JSON] NoContent
+type InplaceApi a =
+  Get '[JSON] [Short a] :<|>
+  Capture "slug" T.Text :> (
+    Get '[JSON] a :<|>
+    ReqBody '[JSON] (Create a) :> Put '[JSON] a :<|>
+    DeleteNoContent '[JSON] NoContent
+  )
 
-type RestObject a =
-  Get '[JSON] a :<|>
-  ReqBody '[JSON] (Update a) :> Put '[JSON] a :<|>
-  DeleteNoContent '[JSON] NoContent
+type ApiDocumentation = Get '[PlainText] T.Text
 
-type IdRestObject a = Capture "id" Int :> RestObject a
-type SlugRestObject a = Capture "slug" T.Text :> RestObject a
+type BookshelvesApi = HierarchicalApi Bookshelf "id" Int32 (
+    "roles" :> InplaceApi BookshelfRole
+  )
 
-type APIDocumentation = Get '[PlainText] T.Text
-type BookshelvesAPI = RestCollection Bookshelf :<|> IdRestObject Bookshelf
-type ChatsAPI = RestCollection Chat :<|> IdRestObject Chat
-type TagsAPI = RestCollection Tag :<|> SlugRestObject Tag
-type UsersAPI = RestCollection User :<|> SlugRestObject User
-type WebsocketAPI = GetNoContent '[PlainText] NoContent
+type ChatsApi = HierarchicalApi Chat "id" Int32 (
+    "messages" :> SimpleHierarchicalApi Message :<|>
+    "roles" :> InplaceApi ChatRole
+  )
 
-type QuestsAPI = 
-  RestCollection Quest :<|>
-  Capture "id" Int :> (
-    RestCollectionObject Quest :<|>
-    Capture "index" Int :> (
-      RestCollectionObject Chapter :<|>
-      Capture "index" Int :> RestObject Passage
-    )
+type PollsApi = HierarchicalApi Poll "id" Int32 (
+    "choices" :> SimpleHierarchicalApi Choice
+  )
+
+type QuestsApi = HierarchicalApi Quest "id" Int32 (
+    "chapters" :> HierarchicalApi Chapter "index" Int32 (
+        "passages" :> HierarchicalApi Passage "index" Int32 EmptyAPI
+      ) :<|>
+    "roles" :> InplaceApi QuestRole
+  )
+
+type TagsApi = SimpleHierarchicalApi Tag
+
+type UsersApi = HierarchicalApi User "slug" T.Text (
+    "session" :> SimpleHierarchicalApi Session :<|>
+    "bans" :> SimpleHierarchicalApi Ban
   )
 
 type ApiVersion1 =
-  "bookshelves" :> BookshelvesAPI :<|>
-  "chats" :> ChatsAPI :<|>
-  "quests" :> QuestsAPI :<|>
-  "tags" :> TagsAPI :<|>
-  "users" :> UsersAPI :<|>
-  "ws" :> WebsocketAPI
+  "bookshelves" :> BookshelvesApi :<|>
+  "chats" :> ChatsApi :<|>
+  "polls" :> PollsApi :<|>
+  "quests" :> QuestsApi :<|>
+  "tags" :> TagsApi :<|>
+  "users" :> UsersApi :<|>
+  "ws" :> EmptyAPI
 
-type ApiRoot = APIDocumentation :<|> "v1" :> ApiVersion1
+type ApiRoot = ApiDocumentation :<|> "v1" :> ApiVersion1
 
 api :: Proxy ApiRoot
 api = Proxy

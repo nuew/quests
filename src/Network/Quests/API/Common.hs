@@ -9,6 +9,7 @@ module Network.Quests.API.Common where
 
 import           Data.Aeson.TH
 import qualified Data.ByteString               as B
+import           Data.Int
 import qualified Data.Text                     as T
 import           Network.URI
 import           Network.Quests.API.JSON
@@ -31,11 +32,11 @@ class RestApi a where
 data Visibility = Public | Unlisted | Private
   deriving (Eq, Ord, Enum, Bounded)
 
-instance ToCapture (Capture "id" Int) where
+instance ToCapture (Capture "id" Int32) where
   toCapture _ =
     DocCapture "id" "The numeric identifier that corresponds to the resource."
 
-instance ToCapture (Capture "index" Int) where
+instance ToCapture (Capture "index" Int32) where
   toCapture _ =
     DocCapture "index" "The index of the resource within its container."
 

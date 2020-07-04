@@ -2,6 +2,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Quests.API.Chats
   ( Chat
+  , ChatRole
+  , Message
   )
 where
 
@@ -16,11 +18,24 @@ data Chat = Chat { chatTopic :: T.Text
                  , chatModerators :: [Ref User]
                  }
 
-instance RestApi Chat where
+data ChatRole = ChatRole
+data Message = Message
+
+instance RestApi Chat
+instance RestApi ChatRole
+instance RestApi Message
 
 instance ToSample Chat where
   toSamples _ = singleSample $ Chat
     "Discussion"
     []
 
+instance ToSample ChatRole where
+  toSamples _ = noSamples
+
+instance ToSample Message where
+  toSamples _ = noSamples
+
 $(deriveJSON (jsonOptions "chat") ''Chat)
+$(deriveJSON (jsonOptions "chatRole") ''ChatRole)
+$(deriveJSON (jsonOptions "message") ''Message)

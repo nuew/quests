@@ -8,6 +8,7 @@ import           Data.List
 import           Data.Maybe
 import qualified Data.Text                     as T
 import           Network.URI
+import           Servant.Auth.Server
 
 uriToText uri = T.pack $ uriToString id uri ""
 
@@ -23,11 +24,3 @@ jsonOptions prefix = defaultOptions
 
   stripPrefixL prefix = mapFirst toLower . fromMaybe "" . stripPrefix prefix
   stripPrefixU = stripPrefixL . mapFirst toUpper
-
-instance FromJSON URI where
-  parseJSON = withText "URI" $ failNothing . parseURI . T.unpack
-    where failNothing = maybe (fail "couldn't parse as URI") return
-
-instance ToJSON URI where
-  toJSON     = String . uriToText
-  toEncoding = text . uriToText

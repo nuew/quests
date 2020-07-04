@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Quests.API.Bookshelves
   ( Bookshelf
+  , BookshelfRole
   )
 where
 
@@ -20,10 +21,17 @@ data Bookshelf = Bookshelf { bookshelfName :: T.Text
                            , bookshelfQuests :: [Short Quest]
                            }
 
-instance RestApi Bookshelf where
+data BookshelfRole = BookshelfRole
+
+instance RestApi Bookshelf
+instance RestApi BookshelfRole
 
 instance ToSample Bookshelf where
   toSamples _ =
     singleSample $ Bookshelf "Likes" "Stories I liked." '❤' False Public []
 
+instance ToSample BookshelfRole where
+  toSamples _ = noSamples
+
 $(deriveJSON (jsonOptions "bookshelf") ''Bookshelf)
+$(deriveJSON (jsonOptions "bookshelfRole") ''BookshelfRole)

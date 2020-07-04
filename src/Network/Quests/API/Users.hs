@@ -2,7 +2,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 module Network.Quests.API.Users
-  ( User
+  ( Session
+  , User
   )
 where
 
@@ -15,6 +16,8 @@ import           Network.Quests.API.JSON
 import           Network.Quests.API.Quests
 import           Network.URI
 import           Servant.Docs
+
+data Session = Session
 
 data User = User { userName :: T.Text
                  , userEmail :: T.Text
@@ -52,10 +55,15 @@ data UpdateUser = UpdateUser { updateUserName :: T.Text
                              , updateUserWebsite :: T.Text
                              }
 
+instance RestApi Session
+
 instance RestApi User where
   type Short User = ShortUser
   type Create User = CreateUser
   type Update User = UpdateUser
+
+instance ToSample Session where
+  toSamples _ = noSamples
 
 uri1 = URI "" Nothing "/images/foo.png" "" ""
 uri2 = URI "" Nothing "/images/baz.jpg" "" ""
@@ -87,7 +95,8 @@ instance ToSample UpdateUser where
     , UpdateUser "bar" "bar@example.net" Nothing     "" "" "" ""
     ]
 
-$(deriveJSON (jsonOptions "user") ''User)
-$(deriveJSON (jsonOptions "shortUser") ''ShortUser)
 $(deriveJSON (jsonOptions "createUser") ''CreateUser)
+$(deriveJSON (jsonOptions "session") ''Session)
+$(deriveJSON (jsonOptions "shortUser") ''ShortUser)
 $(deriveJSON (jsonOptions "updateUser") ''UpdateUser)
+$(deriveJSON (jsonOptions "user") ''User)

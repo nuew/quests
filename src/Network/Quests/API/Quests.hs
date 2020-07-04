@@ -5,6 +5,7 @@ module Network.Quests.API.Quests
   ( Chapter
   , Passage
   , Quest
+  , QuestRole
   )
 where
 
@@ -76,6 +77,8 @@ data UpdateQuest = UpdateQuest { updateQuestName :: T.Text
                                , updateQuestLive :: Live
                                }
 
+data QuestRole = QuestRole
+
 instance RestApi Passage where
   type Short Passage = PassageContents
   type Update Passage = UpdatePassage
@@ -90,6 +93,8 @@ instance RestApi Quest where
   type Short Quest = ShortQuest
   type Update Quest = UpdateQuest
   type Create Quest = UpdateQuest
+
+instance RestApi QuestRole
 
 instance ToSample Passage where
   toSamples _ = noSamples
@@ -118,11 +123,15 @@ instance ToSample ShortQuest where
 instance ToSample UpdateQuest where
   toSamples _ = noSamples
 
+instance ToSample QuestRole where
+  toSamples _ = noSamples
+
 $(deriveJSON (jsonOptions "chapter") ''Chapter)
 $(deriveJSON (jsonOptions "live") ''Live)
 $(deriveJSON (jsonOptions "passage") ''Passage)
 $(deriveJSON (jsonOptions "passageContents") ''PassageContents)
 $(deriveJSON (jsonOptions "quest") ''Quest)
+$(deriveJSON (jsonOptions "questRole") ''QuestRole)
 $(deriveJSON (jsonOptions "shortChapter") ''ShortChapter)
 $(deriveJSON (jsonOptions "shortQuest") ''ShortQuest)
 $(deriveJSON (jsonOptions "updateChapter") ''UpdateChapter)

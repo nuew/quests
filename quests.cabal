@@ -17,10 +17,12 @@ library
   hs-source-dirs:      src
   exposed-modules:     Network.Quests
   other-modules:       Network.Quests.API
+                     , Network.Quests.API.Bans
                      , Network.Quests.API.Bookshelves
                      , Network.Quests.API.Chats
                      , Network.Quests.API.Common
                      , Network.Quests.API.JSON
+                     , Network.Quests.API.Polls
                      , Network.Quests.API.Quests
                      , Network.Quests.API.Tags
                      , Network.Quests.API.Users
