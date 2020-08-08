@@ -11,6 +11,7 @@ import           Data.Aeson.TH
 import qualified Data.ByteString               as B
 import           Data.Int
 import qualified Data.Text                     as T
+import qualified Database.PostgreSQL.Simple    as PG
 import           Network.URI
 import           Network.Quests.API.JSON
 import           Servant

@@ -5,6 +5,7 @@ module Network.Quests.API.Users
   ( Session
   , User (..)
   , CreateUser (..)
+  , ShortUser (..)
   )
 where
 
@@ -38,6 +39,7 @@ data User = User { userName :: T.Text
 data ShortUser = ShortUser { shortUserName :: T.Text
                            , shortUserAvatar :: Maybe URI
                            , shortUserLastActive :: UTCTime
+                           , shortUserUri :: URI
                            }
 
 data CreateUser = CreateUserPassword { createUserName :: T.Text
@@ -84,7 +86,7 @@ instance ToSample User where
 
 instance ToSample ShortUser where
   toSamples _ =
-    samples [ShortUser "foo" (Just uri1) time2, ShortUser "bar" Nothing time4]
+    samples [ShortUser "foo" (Just uri1) time2 uri1, ShortUser "bar" Nothing time4 uri2]
 
 instance ToSample CreateUser where
   toSamples _ =

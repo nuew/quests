@@ -39,6 +39,34 @@ CREATE TABLE sessions (
     expires_at      TIMESTAMPTZ NULL
 );
 
+CREATE TABLE user_followers (
+    following_id    INTEGER     NOT NULL REFERENCES users
+                                    ON DELETE CASCADE,
+    followed_id     INTEGER     NOT NULL REFERENCES users
+                                    ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    PRIMARY KEY (following_id, followed_id)
+);
+
+CREATE VIEW users_short AS
+    SELECT u.id, u.name, l.slug, u.avatar, l.created_at, s.last_active
+    FROM users u
+    INNER JOIN user_slugs l ON u.id = l.user_id
+    LEFT JOIN sessions s ON u.id = s.user_id;
+
+CREATE VIEW users_long AS
+    SELECT u.id, u.name, l.slug, u.email, u.avatar, u.created_at, s.last_active,
+           u.password_hash, u.biography, u.location, u.pronouns, u.website
+    FROM users u
+    INNER JOIN user_slugs l ON u.id = l.user_id
+    LEFT JOIN sessions s ON u.id = s.user_id;
+
+CREATE VIEW active_sessions AS
+    SELECT *
+    FROM sessions
+    WHERE expires_at < now();
+
 -- Chats
 CREATE TABLE chats (
     id              SERIAL      PRIMARY KEY,
@@ -68,6 +96,11 @@ CREATE TABLE messages (
     attachment      TEXT        NULL
 );
 
+CREATE VIEW chats_long AS
+    SELECT c.id, c.topic, c.open, c.voiced_only, m.last_updated
+    FROM chats c
+    LEFT JOIN messages m ON m.chat_id = c.id;
+
 -- Polls
 CREATE TABLE polls (
     id              SERIAL      PRIMARY KEY,
@@ -94,6 +127,7 @@ CREATE TABLE poll_ballot_choice (
                                     ON DELETE CASCADE,
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     ranking         SMALLINT    NULL, -- NULL if the election method in use doesn't use rankings.
 
     PRIMARY KEY (choice_id, user_id)
@@ -205,6 +239,12 @@ CREATE VIEW absorbed_passages AS
         d.id IS NOT NULL OR
         v.id IS NOT NULL OR
         t.id IS NOT NULL;
+
+CREATE VIEW quest_passages AS
+    SELECT q.id as quest_id, p.*
+    FROM passages p
+    INNER JOIN chapters c ON p.chapter_id = c.id
+    INNER JOIN quests q ON c.quest_id = q.id;
 
 -- Tags
 CREATE TABLE tags (
