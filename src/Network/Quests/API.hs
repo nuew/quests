@@ -22,22 +22,22 @@ type HierCreateApi a = ReqBody '[JSON] (Create a) :> HierCreateEndpoint a
 type HierItemGetApi a = Get '[JSON] a
 type HierItemUpdateApi a = ReqBody '[JSON] (Update a) :> Put '[JSON] a
 type HierItemDeleteApi a = DeleteNoContent '[JSON] NoContent
-type HierItemApi a b c d = Capture b c :> (
+type HierItemApi a b = Capture (CaptureName a) (CaptureType a) :> (
     HierItemGetApi a :<|>
     HierItemUpdateApi a :<|>
     HierItemDeleteApi a :<|>
-    d
+    b
   )
-type HierarchicalApi a b c d =
+type HierarchicalApi a b =
   HierSearchApi a :<|>
   HierCreateApi a :<|>
-  HierItemApi a b c d
+  HierItemApi a b
 
 type InplaceListApi a = Get '[JSON] [Short a]
 type InplaceValueApi a = Get '[JSON] a
 type InplaceSetApi a = ReqBody '[JSON] (Create a) :> Put '[JSON] a
 type InplaceResetApi a = DeleteNoContent '[JSON] NoContent
-type InplaceItemApi a = Capture "slug" T.Text :> (
+type InplaceItemApi a = Capture (CaptureName a) (CaptureType a) :> (
     InplaceValueApi a :<|>
     InplaceSetApi a :<|>
     InplaceResetApi a
@@ -49,54 +49,46 @@ type ApiDocumentation = Get '[PlainText] T.Text
 type CreateReportApi = ReqBody '[JSON] CreateReport :> Post '[JSON] NoContent
 
 type BookshelfRolesApi = InplaceApi BookshelfRole
-type BookshelvesApi = HierarchicalApi Bookshelf "id" Int32 (
+type BookshelvesApi = HierarchicalApi Bookshelf (
     "report" :> CreateReportApi :<|>
     "roles" :> BookshelfRolesApi
   )
 
-type MessagesApi = HierarchicalApi Message "id" Int32 (
-    "report" :> CreateReportApi
-  )
+type MessagesApi = HierarchicalApi Message ("report" :> CreateReportApi)
 type ChatRolesApi = InplaceApi ChatRole
-type ChatsApi = HierarchicalApi Chat "id" Int32 (
+type ChatsApi = HierarchicalApi Chat (
     "messages" :> MessagesApi :<|>
     "report" :> CreateReportApi :<|>
     "roles" :> ChatRolesApi
   )
 
-type ChoicesApi = HierarchicalApi Choice "id" Int32 (
-    "report" :> CreateReportApi
-  )
-type PollsApi = HierarchicalApi Poll "id" Int32 (
+type ChoicesApi = HierarchicalApi Choice ("report" :> CreateReportApi)
+type PollsApi = HierarchicalApi Poll (
     "choices" :> ChoicesApi :<|>
     "report" :> CreateReportApi
   )
 
-type PassagesApi = HierarchicalApi Passage "index" Int32 (
-    "report" :> CreateReportApi
-  )
-type ChaptersApi = HierarchicalApi Chapter "index" Int32 (
+type PassagesApi = HierarchicalApi Passage ("report" :> CreateReportApi)
+type ChaptersApi = HierarchicalApi Chapter (
     "passages" :> PassagesApi :<|>
     "report" :> CreateReportApi
   )
 type QuestRolesApi = InplaceApi QuestRole
-type QuestsApi = HierarchicalApi Quest "id" Int32 (
+type QuestsApi = HierarchicalApi Quest (
     "chapters" :> ChaptersApi :<|>
     "report" :> CreateReportApi :<|>
     "roles" :> QuestRolesApi
   )
 
-type ReportsApi =
-    HierSearchApi Report :<|>
-    Capture "id" Int32 :> (HierItemGetApi Report :<|> HierItemDeleteApi Report)
+type ReportsApi = HierSearchApi Report :<|>
+    Capture (CaptureName Report) (CaptureType Report) :>
+      (HierItemGetApi Report :<|> HierItemDeleteApi Report)
 
-type TagsApi = HierarchicalApi Tag "tag" T.Text (
-    "report" :> CreateReportApi
-  )
+type TagsApi = HierarchicalApi Tag ("report" :> CreateReportApi)
 
-type BansApi = HierarchicalApi Ban "id" Int32 EmptyAPI
-type SessionsApi = HierarchicalApi Session "id" Int32 EmptyAPI
-type UsersApi = HierarchicalApi User "slug" T.Text (
+type BansApi = HierarchicalApi Ban EmptyAPI
+type SessionsApi = HierarchicalApi Session EmptyAPI
+type UsersApi = HierarchicalApi User (
     "bans" :> BansApi :<|>
     "sessions" :> SessionsApi :<|>
     "report" :> CreateReportApi

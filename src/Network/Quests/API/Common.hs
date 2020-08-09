@@ -12,6 +12,7 @@ import qualified Data.ByteString               as B
 import           Data.Int
 import qualified Data.Text                     as T
 import qualified Database.PostgreSQL.Simple    as PG
+import           GHC.TypeLits
 import           Network.URI
 import           Network.Quests.API.JSON
 import           Servant
@@ -29,6 +30,12 @@ class RestApi a where
 
   type Update a :: *
   type Update a = a
+
+  type CaptureName a :: Symbol
+  type CaptureName a = "id"
+
+  type CaptureType a :: *
+  type CaptureType a = Int32
 
 data Visibility = Public | Unlisted | Private
   deriving (Eq, Ord, Enum, Bounded)

@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -64,6 +65,8 @@ instance RestApi User where
   type Short User = ShortUser
   type Create User = CreateUser
   type Update User = UpdateUser
+  type CaptureName User = "slug"
+  type CaptureType User = T.Text
 
 instance ToSample Session where
   toSamples _ = noSamples

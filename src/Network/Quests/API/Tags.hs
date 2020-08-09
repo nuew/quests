@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -15,6 +16,8 @@ import           Servant.Docs
 newtype Tag = Tag T.Text
 
 instance RestApi Tag where
+  type CaptureName Tag = "tag"
+  type CaptureType Tag = T.Text
 
 instance ToSample Tag where
   toSamples _ = samples [Tag "nsfw", Tag "art quest"]

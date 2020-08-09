@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -83,11 +84,13 @@ instance RestApi Passage where
   type Short Passage = PassageContents
   type Update Passage = UpdatePassage
   type Create Passage = UpdatePassage
+  type CaptureName Passage = "index"
 
 instance RestApi Chapter where
   type Short Chapter = ShortChapter
   type Update Chapter = UpdateChapter
   type Create Chapter = UpdateChapter
+  type CaptureName Chapter = "index"
 
 instance RestApi Quest where
   type Short Quest = ShortQuest
