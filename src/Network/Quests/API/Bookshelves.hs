@@ -1,5 +1,7 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 module Network.Quests.API.Bookshelves
   ( Bookshelf
   , BookshelfRole
@@ -24,7 +26,10 @@ data Bookshelf = Bookshelf { bookshelfName :: T.Text
 data BookshelfRole = BookshelfRole
 
 instance RestApi Bookshelf
-instance RestApi BookshelfRole
+
+instance RestApi BookshelfRole where
+  type CaptureName BookshelfRole = "slug"
+  type CaptureType BookshelfRole = T.Text
 
 instance ToSample Bookshelf where
   toSamples _ =

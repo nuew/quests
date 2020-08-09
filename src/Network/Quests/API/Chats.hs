@@ -1,5 +1,7 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 module Network.Quests.API.Chats
   ( Chat
   , ChatRole
@@ -22,7 +24,11 @@ data ChatRole = ChatRole
 data Message = Message
 
 instance RestApi Chat
-instance RestApi ChatRole
+
+instance RestApi ChatRole where
+  type CaptureName ChatRole = "slug"
+  type CaptureType ChatRole = T.Text
+
 instance RestApi Message
 
 instance ToSample Chat where

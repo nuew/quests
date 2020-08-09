@@ -97,7 +97,9 @@ instance RestApi Quest where
   type Update Quest = UpdateQuest
   type Create Quest = UpdateQuest
 
-instance RestApi QuestRole
+instance RestApi QuestRole where
+  type CaptureName QuestRole = "slug"
+  type CaptureType QuestRole = T.Text
 
 instance ToSample Passage where
   toSamples _ = noSamples
