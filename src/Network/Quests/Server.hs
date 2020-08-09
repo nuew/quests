@@ -59,7 +59,7 @@ userDetailLocationProxy :: Proxy ("v1"
 userDetailLocationProxy = Proxy
 
 searchUsersServer :: Pool PG.Connection
-                  -> Server (Get '[JSON] [ShortUser])
+                  -> Server (HierSearchApi User)
 searchUsersServer pool = liftIO . withResource pool $ \conn ->
     PG.fold_ conn "SELECT DISTINCT ON (u.id)\
                   \ u.name, l.slug, u.avatar, l.created_at, s.last_active\
@@ -82,11 +82,11 @@ searchUsersServer pool = liftIO . withResource pool $ \conn ->
 
 newUserServer :: Pool PG.Connection
               -> CreateUser
-              -> Server (PostCreated '[JSON] (Headers '[Header "Location" URI] User))
+              -> Server (HierCreateEndpoint User)
 newUserServer pool uc = liftIO . withResource pool $ \conn -> do
     salt <- getEntropy 32 -- FIXME use a vault crypto rng if possible
     let slug = createUserName uc
-    db_time <- catch (createNewUser conn uc slug salt) (\e -> throw $ mapSqlError e)
+    db_time <- catch (createNewUser conn uc slug salt) $ throw . mapSqlError
 
     -- generate return value
     let newUser = User { userName = createUserName uc
@@ -105,7 +105,7 @@ newUserServer pool uc = liftIO . withResource pool $ \conn -> do
                        }
 
     let newUserLocation = safeLink api userDetailLocationProxy slug
-    return $ addHeader (linkURI newUserLocation) $ newUser
+    return $ addHeader (linkURI newUserLocation) newUser
   where
     createNewUser :: PG.Connection -> CreateUser -> T.Text -> B.ByteString -> IO UTCTime
     createNewUser conn uc slug salt = PG.withTransaction conn $ do
@@ -122,7 +122,7 @@ newUserServer pool uc = liftIO . withResource pool $ \conn -> do
 
       return db_time
 
-userDetailServer :: Pool PG.Connection -> T.Text -> Server (Get '[JSON] User)
+userDetailServer :: Pool PG.Connection -> T.Text -> Server (HierItemGetApi User)
 userDetailServer pool name = liftIO . withResource pool $ \conn -> do
     [row] <- PG.query conn "SELECT id, name, email, avatar, created_at,\
                            \ last_active, biography, location, pronouns,\
