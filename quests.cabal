@@ -24,6 +24,7 @@ library
                      , Network.Quests.API.JSON
                      , Network.Quests.API.Polls
                      , Network.Quests.API.Quests
+                     , Network.Quests.API.Reports
                      , Network.Quests.API.Tags
                      , Network.Quests.API.Users
                      , Network.Quests.Server

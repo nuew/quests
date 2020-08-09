@@ -5,6 +5,19 @@ CREATE TYPE quest_role AS ENUM ('Author', 'Participant', 'Guest');
 CREATE TYPE shelf_role AS ENUM ('Editor', 'Visitor');
 CREATE TYPE visibility AS ENUM ('Public', 'Unlisted', 'Private');
 
+CREATE TYPE report_type AS ENUM (
+    'User',
+    'Bookshelf',
+    'Quest',
+    'Chapter',
+    'Passage',
+    'Poll',
+    'Choice',
+    'Chat',
+    'Message',
+    'Tag'
+);
+
 -- Users
 CREATE TABLE users (
     id              SERIAL      PRIMARY KEY,
@@ -240,6 +253,19 @@ CREATE VIEW absorbed_passages AS
         v.id IS NOT NULL OR
         t.id IS NOT NULL;
 
+CREATE VIEW orphaned_passages AS
+    SELECT p.*
+    FROM passages p
+    LEFT JOIN chat_passages c ON p.id = c.id
+    LEFT JOIN dice_passages d ON p.id = d.id
+    LEFT JOIN poll_passages v ON p.id = v.id
+    LEFT JOIN textual_passages t ON p.id = t.id
+    WHERE
+        c.id IS NULL AND
+        d.id IS NULL AND
+        v.id IS NULL AND
+        t.id IS NULL;
+
 CREATE VIEW quest_passages AS
     SELECT q.id as quest_id, p.*
     FROM passages p
@@ -333,3 +359,182 @@ CREATE VIEW active_chat_bans AS
     SELECT b.*, c.chat_id
     FROM bans b, chat_bans c
     WHERE now() < b.expires_at AND (b.global = True OR b.id = c.ban_id);
+
+-- Reports
+CREATE TABLE reports (
+    id              SERIAL      PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
+    resolved_at     TIMESTAMPTZ NULL,
+    resolved_by     INT         NULL REFERENCES users
+                                    ON DELETE CASCADE,
+    reason          TEXT        NOT NULL,
+
+    CHECK ((resolved_at IS NULL AND resolved_by IS NULL) OR
+           (resolved_at IS NOT NULL AND resolved_by IS NOT NULL)),
+    UNIQUE (id, report_type)
+);
+
+CREATE TABLE user_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'User'
+                                    CHECK (report_type = 'User'),
+    user_id         INT         NOT NULL REFERENCES users
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE bookshelf_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Bookshelf'
+                                    CHECK (report_type = 'Bookshelf'),
+    bookshelf_id    INT         NOT NULL REFERENCES bookshelves
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE quest_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Quest'
+                                    CHECK (report_type = 'Quest'),
+    quest_id        INT         NOT NULL REFERENCES quests
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE chapter_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Chapter'
+                                    CHECK (report_type = 'Chapter'),
+    chapter_id      INT         NOT NULL REFERENCES chapters
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE passage_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Passage'
+                                    CHECK (report_type = 'Passage'),
+    passage_id      INT         NOT NULL REFERENCES passages
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE poll_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Poll'
+                                    CHECK (report_type = 'Poll'),
+    poll_id         INT         NOT NULL REFERENCES polls
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE choice_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Choice'
+                                    CHECK (report_type = 'Choice'),
+    choice_id       INT         NOT NULL REFERENCES poll_choices
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE chat_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Choice'
+                                    CHECK (report_type = 'Choice'),
+    chat_id         INT         NOT NULL REFERENCES poll_choices
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE message_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Message'
+                                    CHECK (report_type = 'Message'),
+    message_id      INT         NOT NULL REFERENCES messages
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE tag_reports (
+    id              INT         PRIMARY KEY,
+    report_type     REPORT_TYPE NOT NULL DEFAULT 'Tag'
+                                    CHECK (report_type = 'Tag'),
+    tag_id          INT         NOT NULL REFERENCES tags
+                                    ON DELETE CASCADE,
+
+    FOREIGN KEY (id, report_type) REFERENCES reports (id, report_type)
+        ON DELETE CASCADE
+);
+
+CREATE VIEW absorbed_reports AS
+    SELECT r.*, u.user_id, b.bookshelf_id, q.quest_id, c.chapter_id,
+           p.passage_id, v.poll_id, o.choice_id, t.chat_id, m.message_id,
+           g.tag_id
+    FROM reports r
+    LEFT JOIN user_reports u ON r.id = u.id
+    LEFT JOIN bookshelf_reports b ON r.id = b.id
+    LEFT JOIN quest_reports q ON r.id = q.id
+    LEFT JOIN chapter_reports c ON r.id = c.id
+    LEFT JOIN passage_reports p ON r.id = p.id
+    LEFT JOIN poll_reports v ON r.id = v.id
+    LEFT JOIN choice_reports o ON r.id = o.id
+    LEFT JOIN chat_reports t ON r.id = t.id
+    LEFT JOIN message_reports m ON r.id = m.id
+    LEFT JOIN tag_reports g ON r.id = g.id
+    WHERE
+        u.id IS NOT NULL OR
+        b.id IS NOT NULL OR
+        q.id IS NOT NULL OR
+        c.id IS NOT NULL OR
+        p.id IS NOT NULL OR
+        v.id IS NOT NULL OR
+        o.id IS NOT NULL OR
+        t.id IS NOT NULL OR
+        m.id IS NOT NULL OR
+        g.id IS NOT NULL;
+
+CREATE VIEW orphaned_reports AS
+    SELECT r.*
+    FROM reports r
+    LEFT JOIN user_reports u ON r.id = u.id
+    LEFT JOIN bookshelf_reports b ON r.id = b.id
+    LEFT JOIN quest_reports q ON r.id = q.id
+    LEFT JOIN chapter_reports c ON r.id = c.id
+    LEFT JOIN passage_reports p ON r.id = p.id
+    LEFT JOIN poll_reports v ON r.id = v.id
+    LEFT JOIN choice_reports o ON r.id = o.id
+    LEFT JOIN chat_reports t ON r.id = t.id
+    LEFT JOIN message_reports m ON r.id = m.id
+    LEFT JOIN tag_reports g ON r.id = g.id
+    WHERE
+        u.id IS NULL AND
+        b.id IS NULL AND
+        q.id IS NULL AND
+        c.id IS NULL AND
+        p.id IS NULL AND
+        v.id IS NULL AND
+        o.id IS NULL AND
+        t.id IS NULL AND
+        m.id IS NULL AND
+        g.id IS NULL;

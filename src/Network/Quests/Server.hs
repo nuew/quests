@@ -43,6 +43,9 @@ pollsServer _ = undefined
 questsServer :: Pool PG.Connection -> Server QuestsApi
 questsServer _ = undefined
 
+reportsServer :: Pool PG.Connection -> Server ReportsApi
+reportsServer _ = undefined
+
 tagsServer :: Pool PG.Connection -> Server TagsApi
 tagsServer _ = undefined
 
@@ -171,6 +174,7 @@ apiV1Server pool = bookshelvesServer pool
               :<|> chatsServer pool
               :<|> pollsServer pool
               :<|> questsServer pool
+              :<|> reportsServer pool
               :<|> tagsServer pool
               :<|> usersServer pool
               :<|> undefined

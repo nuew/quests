@@ -10,6 +10,7 @@ import           Network.Quests.API.Chats
 import           Network.Quests.API.Common
 import           Network.Quests.API.Polls
 import           Network.Quests.API.Quests
+import           Network.Quests.API.Reports
 import           Network.Quests.API.Tags
 import           Network.Quests.API.Users
 import           Servant
@@ -26,8 +27,6 @@ type HierarchicalApi a b c d =
     d
   )
 
-type SimpleHierarchicalApi a = HierarchicalApi a "id" Int32 EmptyAPI
-
 type InplaceApi a =
   Get '[JSON] [Short a] :<|>
   Capture "slug" T.Text :> (
@@ -38,31 +37,49 @@ type InplaceApi a =
 
 type ApiDocumentation = Get '[PlainText] T.Text
 
+type CreateReportApi = ReqBody '[JSON] CreateReport :> Post '[JSON] NoContent
+
 type BookshelvesApi = HierarchicalApi Bookshelf "id" Int32 (
+    "report" :> CreateReportApi :<|>
     "roles" :> InplaceApi BookshelfRole
   )
 
 type ChatsApi = HierarchicalApi Chat "id" Int32 (
-    "messages" :> SimpleHierarchicalApi Message :<|>
+    "messages" :> HierarchicalApi Message "id" Int32 (
+        "report" :> CreateReportApi
+      ) :<|>
+    "report" :> CreateReportApi :<|>
     "roles" :> InplaceApi ChatRole
   )
 
 type PollsApi = HierarchicalApi Poll "id" Int32 (
-    "choices" :> SimpleHierarchicalApi Choice
+    "choices" :> HierarchicalApi Choice "id" Int32 (
+        "report" :> CreateReportApi
+      ) :<|>
+    "report" :> CreateReportApi
   )
 
 type QuestsApi = HierarchicalApi Quest "id" Int32 (
     "chapters" :> HierarchicalApi Chapter "index" Int32 (
-        "passages" :> HierarchicalApi Passage "index" Int32 EmptyAPI
+        "passages" :> HierarchicalApi Passage "index" Int32 (
+            "report" :> CreateReportApi
+          ) :<|>
+        "report" :> CreateReportApi
       ) :<|>
+    "report" :> CreateReportApi :<|>
     "roles" :> InplaceApi QuestRole
   )
 
-type TagsApi = SimpleHierarchicalApi Tag
+type ReportsApi = HierarchicalApi Report "id" Int32 EmptyAPI
+
+type TagsApi = HierarchicalApi Tag "tag" T.Text (
+    "report" :> CreateReportApi
+  )
 
 type UsersApi = HierarchicalApi User "slug" T.Text (
-    "session" :> SimpleHierarchicalApi Session :<|>
-    "bans" :> SimpleHierarchicalApi Ban
+    "bans" :> HierarchicalApi Ban "id" Int32 EmptyAPI :<|>
+    "session" :> HierarchicalApi Session "id" Int32 EmptyAPI :<|>
+    "report" :> CreateReportApi
   )
 
 type ApiVersion1 =
@@ -70,6 +87,7 @@ type ApiVersion1 =
   "chats" :> ChatsApi :<|>
   "polls" :> PollsApi :<|>
   "quests" :> QuestsApi :<|>
+  "reports" :> ReportsApi :<|>
   "tags" :> TagsApi :<|>
   "users" :> UsersApi :<|>
   "ws" :> EmptyAPI
