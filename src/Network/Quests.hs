@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Quests
-  ( AppConfiguration(..)
-  , app
-  )
+        ( AppConfiguration(..)
+        , app
+        , applyMigrations
+        )
 where
 
 import           Control.Exception.Base
@@ -29,29 +30,47 @@ data AppConfiguration = AppConfiguration
   , secretKey :: B.ByteString
   }
 
-app :: AppConfiguration -> IO Application
-app cfg = bracket setupDatabasePool destroyAllResources
-  $ \pool -> return (serveWithContext api ctx $ server pool)
- where
-  jwtCtx = defaultJWTSettings $ fromSecret $ secretKey cfg
-  ctx    = jwtCtx :. defaultCookieSettings :. EmptyContext
+migrations :: MigrationCommand
+migrations = MigrationCommands $ MigrationInitialization : migrationScripts
+    where
+        migrationDirectory = $(embedDir "./migrations/")
+        migrationScripts   = fmap (uncurry MigrationScript) migrationDirectory
 
-  migrateOrThrow f = case f of
-    MigrationSuccess -> return ()
-    MigrationError e -> error e
-  migrationDirectory = $(embedDir "./migrations/")
-  migrationScripts = fmap (uncurry MigrationScript) migrationDirectory
-  doMigrations conn = PG.withTransaction conn $ do
-    PG.execute_ conn "SET LOCAL client_min_messages = WARNING;"
-    runMigrations False conn $ MigrationInitialization : migrationScripts
-  setupDatabasePool = do
-    pool <- createPool (PG.connectPostgreSQL $ databaseConnection cfg)
-                       PG.close
-                       (databasePoolStripes cfg)
-                       (databasePoolTimeout cfg)
-                       (databasePoolMaxConns cfg)
-    withResource pool doMigrations >>= migrateOrThrow
-    return pool
+doMigration :: MigrationCommand -> PG.Connection -> IO ()
+doMigration migrations conn = PG.withTransaction conn $ do
+        PG.execute_ conn "SET LOCAL client_min_messages = WARNING;"
+        runMigration ctx >>= migrateOrFail
+    where
+        ctx = MigrationContext { migrationContextCommand    = migrations
+                               , migrationContextVerbose    = False
+                               , migrationContextConnection = conn
+                               }
+        migrateOrFail f = case f of
+                MigrationSuccess -> return ()
+                MigrationError e -> errorWithoutStackTrace $ migrateErrMsg e
+        migrateErrMsg e = "Could not verify DB migrations (" ++ e ++ ")"
+
+setupDatabasePool :: AppConfiguration -> IO (Pool PG.Connection)
+setupDatabasePool cfg = do
+        pool <- createPool
+                (PG.connectPostgreSQL $ databaseConnection cfg)
+                PG.close
+                (databasePoolStripes cfg)
+                (databasePoolTimeout cfg)
+                (databasePoolMaxConns cfg)
+        withResource pool . doMigration $ MigrationValidation migrations
+        return pool
 
 server :: Pool PG.Connection -> Server ApiRoot
 server pool = return apiDocs :<|> apiV1Server pool
+
+app :: AppConfiguration -> IO Application
+app cfg = bracket (setupDatabasePool cfg) destroyAllResources
+        $ \pool -> return (serveWithContext api ctx $ server pool)
+    where
+        jwtCtx = defaultJWTSettings . fromSecret $ secretKey cfg
+        ctx    = jwtCtx :. defaultCookieSettings :. EmptyContext
+
+applyMigrations :: AppConfiguration -> IO ()
+applyMigrations cfg = conn >>= doMigration migrations
+        where conn = PG.connectPostgreSQL $ databaseConnection cfg
