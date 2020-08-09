@@ -130,14 +130,14 @@ userDetailServer pool name = liftIO . withResource pool $ \conn -> do
                            \ LIMIT 1;"
                            $ PG.Only name
     -- todo get bs, follow(s|ers), quests
-    let (id, name, email, avatar, created_at, last_active_fallback, last_active,
-         biography, location, pronouns, website) = row
+    let (id, name, email, avatar, created_at, last_active, biography, location,
+         pronouns, website) = row
         _ = id :: Int
     return User { userName = name
                 , userEmail = email
                 , userAvatar = avatar >>= parseURI
                 , userCreated = created_at
-                , userLastActive = fromMaybe last_active_fallback last_active
+                , userLastActive = fromMaybe created_at last_active
                 , userBiography = biography
                 , userLocation = location
                 , userPronouns = pronouns
