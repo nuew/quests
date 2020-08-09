@@ -33,6 +33,7 @@ library
                      , argon2
                      , bytestring
                      , entropy
+                     , file-embed
                      , network-uri
                      , postgresql-simple
                      , postgresql-simple-migration

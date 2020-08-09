@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Network.Quests
   ( AppConfiguration(..)
   , app
@@ -10,6 +11,7 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.ByteString               as B
+import           Data.FileEmbed
 import           Data.Pool
 import           Data.Time.Clock
 import qualified Database.PostgreSQL.Simple    as PG
@@ -37,10 +39,11 @@ app cfg = bracket setupDatabasePool destroyAllResources
   migrateOrThrow f = case f of
     MigrationSuccess -> return ()
     MigrationError e -> error e
-  migrationCmds = [MigrationInitialization, MigrationDirectory "./migrations/"]
+  migrationDirectory = $(embedDir "./migrations/")
+  migrationScripts = fmap (uncurry MigrationScript) migrationDirectory
   doMigrations conn = PG.withTransaction conn $ do
     PG.execute_ conn "SET LOCAL client_min_messages = WARNING;"
-    runMigrations False conn migrationCmds
+    runMigrations False conn $ MigrationInitialization : migrationScripts
   setupDatabasePool = do
     pool <- createPool (PG.connectPostgreSQL $ databaseConnection cfg)
                        PG.close
