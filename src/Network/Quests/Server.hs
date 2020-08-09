@@ -30,6 +30,9 @@ mapSqlError e = err422 { errBody = BL.fromStrict $ PG.sqlErrorDetail e }
 
 unimplemented :: Handler a
 unimplemented = throwError err501
+  { errBody = "still in development, sorry"
+  , errHeaders = [("Content-Type", "text/plain;charset=utf-8")]
+  }
 
 bookshelvesServer :: Pool PG.Connection -> Server BookshelvesApi
 bookshelvesServer _ = undefined
@@ -153,6 +156,36 @@ userDetailServer pool name = liftIO . withResource pool $ \conn -> do
     followingOf id = []
     questsOf id = []
 
+userBansServer :: Pool PG.Connection -> T.Text -> Server BansApi
+userBansServer pool name = searchBansServer
+                      :<|> newBanServer
+                      :<|> specificBanServer
+  where
+    searchBansServer = unimplemented
+    newBanServer ban = unimplemented
+    specificBanServer id = getBanServer id
+                      :<|> editBanServer id
+                      :<|> deleteBanServer id
+                      :<|> emptyServer
+    getBanServer id = unimplemented
+    editBanServer id ban = unimplemented
+    deleteBanServer id = unimplemented
+
+userSessionsServer :: Pool PG.Connection -> T.Text -> Server SessionsApi
+userSessionsServer pool name = searchSessionsServer
+                          :<|> newSessionServer
+                          :<|> specificSessionServer
+  where
+    searchSessionsServer = unimplemented
+    newSessionServer session = unimplemented
+    specificSessionServer id = getSessionServer id
+                          :<|> editSessionServer id
+                          :<|> deleteSessionServer id
+                          :<|> emptyServer
+    getSessionServer id = unimplemented
+    editSessionServer id session = unimplemented
+    deleteSessionServer id = unimplemented
+
 usersServer :: Pool PG.Connection -> Server UsersApi
 usersServer pool = searchUsersServer pool
               :<|> newUserServer pool
@@ -161,13 +194,13 @@ usersServer pool = searchUsersServer pool
     specificUserServer name = userDetailServer pool name
                          :<|> userUpdate name
                          :<|> userDelete name
-                         :<|> userSessions name
-                         :<|> userBans name
+                         :<|> userBansServer pool name
+                         :<|> userSessionsServer pool name
+                         :<|> userReport name
 
     userUpdate name update = unimplemented
     userDelete name = unimplemented
-    userSessions name = undefined
-    userBans name = undefined
+    userReport name report = unimplemented
 
 apiV1Server :: Pool PG.Connection -> Server ApiVersion1
 apiV1Server pool = bookshelvesServer pool
@@ -177,4 +210,4 @@ apiV1Server pool = bookshelvesServer pool
               :<|> reportsServer pool
               :<|> tagsServer pool
               :<|> usersServer pool
-              :<|> undefined
+              :<|> emptyServer

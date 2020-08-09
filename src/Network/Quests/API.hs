@@ -76,9 +76,12 @@ type TagsApi = HierarchicalApi Tag "tag" T.Text (
     "report" :> CreateReportApi
   )
 
+type BansApi = HierarchicalApi Ban "id" Int32 EmptyAPI
+type SessionsApi = HierarchicalApi Session "id" Int32 EmptyAPI
+
 type UsersApi = HierarchicalApi User "slug" T.Text (
-    "bans" :> HierarchicalApi Ban "id" Int32 EmptyAPI :<|>
-    "session" :> HierarchicalApi Session "id" Int32 EmptyAPI :<|>
+    "bans" :> BansApi :<|>
+    "sessions" :> SessionsApi :<|>
     "report" :> CreateReportApi
   )
 
