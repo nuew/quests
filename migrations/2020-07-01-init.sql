@@ -1,8 +1,9 @@
 CREATE TYPE chat_role AS ENUM ('Owner', 'Moderator', 'Voiced');
 CREATE TYPE electionsys AS ENUM ('Approval', 'Borda', 'FPTP', 'Schulze', 'STV');
 CREATE TYPE passagetype AS ENUM ('Chat', 'Dice', 'Poll', 'Textual');
-CREATE TYPE quest_role AS ENUM ('Author', 'Participant', 'Guest');
-CREATE TYPE shelf_role AS ENUM ('Editor', 'Visitor');
+CREATE TYPE quest_role AS ENUM ('Owner', 'Author', 'Participant', 'Guest');
+CREATE TYPE shelf_role AS ENUM ('Owner', 'Editor', 'Visitor');
+CREATE TYPE user_role AS ENUM ('Administrator', 'Moderator');
 CREATE TYPE visibility AS ENUM ('Public', 'Unlisted', 'Private');
 
 CREATE TYPE report_type AS ENUM (
@@ -41,6 +42,17 @@ CREATE TABLE user_slugs (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE user_roles (
+    user_id         INT         PRIMARY KEY REFERENCES users
+                                    ON DELETE CASCADE,
+    user_role       USER_ROLE   NOT NULL,
+    applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    applied_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL, 
+
+    CHECK (NOT (applied_at IS NULL AND applied_by IS NOT NULL))
+);
+
 CREATE TABLE sessions (
     id              SERIAL      PRIMARY KEY,
     user_id         INTEGER     NOT NULL REFERENCES users
@@ -52,14 +64,16 @@ CREATE TABLE sessions (
     expires_at      TIMESTAMPTZ NULL
 );
 
+CREATE INDEX sessions_expires_at_index ON sessions (expires_at);
+
 CREATE TABLE user_followers (
-    following_id    INTEGER     NOT NULL REFERENCES users
-                                    ON DELETE CASCADE,
     followed_id     INTEGER     NOT NULL REFERENCES users
+                                    ON DELETE CASCADE,
+    follower_id     INTEGER     NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    PRIMARY KEY (following_id, followed_id)
+    PRIMARY KEY (followed_id, follower_id)
 );
 
 CREATE VIEW users_short AS
@@ -94,7 +108,11 @@ CREATE TABLE chat_roles (
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     role            CHAT_ROLE   NOT NULL,
+    applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    applied_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
 
+    CHECK (NOT (applied_at IS NULL AND applied_by IS NOT NULL)),
     PRIMARY KEY (chat_id, user_id)
 );
 
@@ -102,17 +120,21 @@ CREATE TABLE messages (
     id              SERIAL      PRIMARY KEY,
     chat_id         INT         NOT NULL REFERENCES chats
                                     ON DELETE CASCADE,
-    user_id         INT         NOT NULL REFERENCES users,
-    posted_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_updated    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    user_id         INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
     message         TEXT        NOT NULL,
-    attachment      TEXT        NULL
+    attachment      TEXT        NULL,
+    posted_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_updated_at TIMESTAMPTZ NULL
 );
 
-CREATE VIEW chats_long AS
-    SELECT c.id, c.topic, c.open, c.voiced_only, m.last_updated
+CREATE INDEX messages_activity_index ON messages (chat_id, posted_at);
+
+CREATE VIEW chats_updated AS
+    SELECT c.id, c.topic, c.open, c.voiced_only, m.posted_at
     FROM chats c
-    LEFT JOIN messages m ON m.chat_id = c.id;
+    LEFT JOIN messages m ON m.chat_id = c.id
+    ORDER BY m.posted_at DESC;
 
 -- Polls
 CREATE TABLE polls (
@@ -128,11 +150,16 @@ CREATE TABLE poll_choices (
     id              SERIAL      PRIMARY KEY,
     poll_id         INT         NOT NULL REFERENCES polls
                                     ON DELETE CASCADE,
-    user_id         INT         NOT NULL REFERENCES users,
     choice          TEXT        NOT NULL,
     cancel_reason   TEXT        NULL, -- NULL if not cancelled
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_updated    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
+    last_updated_at TIMESTAMPTZ NULL,
+    last_updated_by INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
+
+    CHECK (NOT (last_updated_at IS NULL AND last_updated_by IS NOT NULL))
 );
 
 CREATE TABLE poll_ballot_choice (
@@ -140,8 +167,8 @@ CREATE TABLE poll_ballot_choice (
                                     ON DELETE CASCADE,
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     ranking         SMALLINT    NULL, -- NULL if the election method in use doesn't use rankings.
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     PRIMARY KEY (choice_id, user_id)
 );
@@ -163,7 +190,11 @@ CREATE TABLE quest_roles (
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     role            QUEST_ROLE  NOT NULL,
+    applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    applied_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
 
+    CHECK (NOT (applied_at IS NULL AND applied_by IS NOT NULL)),
     PRIMARY KEY (quest_id, user_id)
 );
 
@@ -185,8 +216,13 @@ CREATE TABLE passages (
                                     ON DELETE CASCADE,
     position        SMALLINT    NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_updated    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
+    last_updated_at TIMESTAMPTZ NULL,
+    last_updated_by INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
 
+    CHECK (NOT (last_updated_at IS NULL AND last_updated_by IS NOT NULL)),
     UNIQUE (id, passagetype),
     UNIQUE (chapter_id, position)
 );
@@ -195,7 +231,8 @@ CREATE TABLE chat_passages (
     id              INT         PRIMARY KEY,
     passagetype     PASSAGETYPE NOT NULL DEFAULT 'Chat'
                                     CHECK (passagetype = 'Chat'),
-    chat_id         INT         NOT NULL REFERENCES chats,
+    chat_id         INT         NOT NULL REFERENCES chats
+                                    ON DELETE NO ACTION,
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
 );
@@ -216,7 +253,8 @@ CREATE TABLE dice_rolls (
     id              SERIAL      PRIMARY KEY,
     passage_id      INT         NOT NULL REFERENCES dice_passages
                                     ON DELETE CASCADE,
-    user_id         INT         NOT NULL REFERENCES users,
+    user_id         INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
     values          SMALLINT[]  NOT NULL, -- Denormalized because normalizing this would be stupid.
     position        SMALLINT    NOT NULL
 );
@@ -225,7 +263,8 @@ CREATE TABLE poll_passages (
     id              INT         PRIMARY KEY,
     passagetype     PASSAGETYPE NOT NULL DEFAULT 'Poll'
                                     CHECK (passagetype = 'Poll'),
-    poll_id         INT         NOT NULL REFERENCES polls,
+    poll_id         INT         NOT NULL REFERENCES polls
+                                    ON DELETE NO ACTION,
 
     FOREIGN KEY (id, passagetype) REFERENCES passages (id, passagetype)
 );
@@ -283,15 +322,17 @@ CREATE TABLE quest_tags (
                                     ON DELETE CASCADE,
     quest_id        INT         NOT NULL REFERENCES quests
                                     ON DELETE CASCADE,
+    applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    applied_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
 
+    CHECK (NOT (applied_at IS NULL AND applied_by IS NOT NULL)),
     PRIMARY KEY (tag_id, quest_id)
 );
 
 -- Bookshelves
 CREATE TABLE bookshelves (
     id              SERIAL      PRIMARY KEY,
-    owner           INT         NOT NULL REFERENCES users
-                                    ON DELETE CASCADE,
     name            TEXT        NOT NULL,
     description     TEXT        NOT NULL,
     icon            CHAR        NOT NULL,
@@ -306,7 +347,11 @@ CREATE TABLE bookshelf_roles (
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     role            SHELF_ROLE  NOT NULL,
+    applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    applied_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
 
+    CHECK (NOT (applied_at IS NULL AND applied_by IS NOT NULL)),
     PRIMARY KEY (bookshelf_id, user_id)
 );
 
@@ -316,7 +361,10 @@ CREATE TABLE bookshelf_items (
     quest_id        INT         NOT NULL REFERENCES quests
                                     ON DELETE CASCADE,
     added_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    added_by        INT         NULL REFERENCES users
+                                    ON DELETE SET NULL, 
 
+    CHECK (NOT (added_at IS NULL AND added_by IS NOT NULL)),
     PRIMARY KEY (bookshelf_id, quest_id)
 );
 
@@ -325,11 +373,14 @@ CREATE TABLE bans (
     id              SERIAL      PRIMARY KEY,
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by      INT         NOT NULL REFERENCES users,
+    applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    applied_by      INT         NULL REFERENCES users
+                                    ON DELETE SET NULL,
     expires_at      TIMESTAMPTZ NULL, -- NULL for never
     reason          TEXT        NOT NULL,
-    global          BOOLEAN     NOT NULL DEFAULT False
+    global          BOOLEAN     NOT NULL DEFAULT False,
+
+    CHECK (NOT (applied_at IS NULL AND applied_by IS NOT NULL))
 );
 
 CREATE TABLE quest_bans (
@@ -364,16 +415,15 @@ CREATE VIEW active_chat_bans AS
 CREATE TABLE reports (
     id              SERIAL      PRIMARY KEY,
     report_type     REPORT_TYPE NOT NULL,
+    reason          TEXT        NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by      INT         NULL REFERENCES users
                                     ON DELETE SET NULL,
     resolved_at     TIMESTAMPTZ NULL,
     resolved_by     INT         NULL REFERENCES users
-                                    ON DELETE CASCADE,
-    reason          TEXT        NOT NULL,
+                                    ON DELETE SET NULL,
 
-    CHECK ((resolved_at IS NULL AND resolved_by IS NULL) OR
-           (resolved_at IS NOT NULL AND resolved_by IS NOT NULL)),
+    CHECK (NOT (resolved_at IS NULL AND resolved_by IS NOT NULL)),
     UNIQUE (id, report_type)
 );
 
