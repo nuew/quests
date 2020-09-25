@@ -30,11 +30,12 @@ library
                      , Network.Quests.Server
   build-depends:       base >= 4.7 && < 5
                      , aeson
-                     , argon2
                      , bytestring
-                     , entropy
+                     , cryptonite
                      , file-embed
+                     , memory
                      , network-uri
+                     , opaleye
                      , postgresql-simple
                      , postgresql-simple-migration
                      , resource-pool
