@@ -51,7 +51,7 @@ Important variables are listed **`in bold`**.
 | `DB_MAX_CONNS`       | Maximum number of connections to keep open per stripe. The smallest acceptable value is 1.                              | `16`      |
 | `DB_STRIPES`         | The number of stripes (distinct sub-pools) to maintain. The smallest acceptable value is 1.                             | `2`       |
 | `DB_TIMEOUT`         | Amount of time for which an unused connection is kept open. The smallest acceptable value is 0.5 seconds.               | `10`      |
-| **`SECRET_KEY`**     | The (unique!) 32-byte secret key for this installation. This is used to hash passwords and encrypt cookies.             | Required  |
+| **`SECRET_KEY`**     | The (unique!) 32-byte secret key for this installation. This is used to encrypt cookies and various tokens.             | Required  |
 | **`SENTRY_DSN`**     | Old-style/deprecated [Sentry][SENTRY] DSN.                                                                              | None      |
 | `SOCKET`             | The name of a Unix socket to use instead of the default TCP socket.                                                     | None      |
 
