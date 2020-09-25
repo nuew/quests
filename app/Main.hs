@@ -216,5 +216,6 @@ main = do
 
         runModule []              = runServer
         runModule (""        : _) = runModule []
+        runModule ("layout"  : _) = putStr . Q.dumpLayout . appCfgOfCfg
         runModule ("migrate" : _) = Q.applyMigrations . appCfgOfCfg
         runModule _               = errorWithoutStackTrace "No such module."

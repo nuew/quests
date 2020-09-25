@@ -1,9 +1,11 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Network.Quests
         ( AppConfiguration(..)
         , app
         , applyMigrations
+        , dumpLayout
         )
 where
 
@@ -14,6 +16,7 @@ import           Data.Aeson.TH
 import qualified Data.ByteString               as B
 import           Data.FileEmbed
 import           Data.Pool
+import qualified Data.Text                     as T
 import           Data.Time.Clock
 import qualified Database.PostgreSQL.Simple    as PG
 import           Database.PostgreSQL.Simple.Migration
@@ -64,13 +67,17 @@ setupDatabasePool cfg = do
 server :: Pool PG.Connection -> Server ApiRoot
 server pool = return apiDocs :<|> apiV1Server pool
 
+apiContext :: AppConfiguration -> Context '[JWTSettings, CookieSettings]
+apiContext cfg = jwtCtx :. defaultCookieSettings :. EmptyContext
+    where jwtCtx = defaultJWTSettings . fromSecret $ secretKey cfg
+
 app :: AppConfiguration -> IO Application
 app cfg = bracket (setupDatabasePool cfg) destroyAllResources
-        $ \pool -> return (serveWithContext api ctx $ server pool)
-    where
-        jwtCtx = defaultJWTSettings . fromSecret $ secretKey cfg
-        ctx    = jwtCtx :. defaultCookieSettings :. EmptyContext
+        $ \pool -> return $ serveWithContext api (apiContext cfg) (server pool)
 
 applyMigrations :: AppConfiguration -> IO ()
 applyMigrations cfg = conn >>= doMigration migrations
-        where conn = PG.connectPostgreSQL $ databaseConnection cfg
+    where conn = PG.connectPostgreSQL $ databaseConnection cfg
+
+dumpLayout :: AppConfiguration -> String
+dumpLayout = T.unpack . layoutWithContext api . apiContext
