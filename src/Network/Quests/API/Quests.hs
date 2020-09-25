@@ -13,18 +13,37 @@ where
 import           Data.Aeson.TH
 import qualified Data.Text                     as T
 import           Data.Time.Clock
+import           Network.Quests.API.Chats
 import           Network.Quests.API.Common
 import           Network.Quests.API.JSON
+import           Network.Quests.API.Polls
 import           Network.Quests.API.Tags
+import           Network.Quests.API.Users
 import           Network.URI
 import           Servant.Docs
 
-data PassageContents = TextualPassage T.Text
-                     | DummyPassage -- TODO removeme
+data DiceRoll = DiceRoll { diceRollValues :: [Int]
+                         , diceRollAt :: UTCTime
+                         , diceRollBy :: Maybe (Ref User)
+                         }
 
-data Passage = Passage { passageCreated :: UTCTime
-                       , passageUpdated :: UTCTime
-                       , passageContents :: PassageContents
+data DicePassage = DicePassage { dicePassageBestOf :: Int
+                               , dicePassageQuantity :: Int
+                               , dicePassageSides :: Int
+                               , dicePassageThreshold :: Int
+                               , dicePassageRolls :: [DiceRoll]
+                               }
+
+data PassageContents = PassageContentsChat (Ref Chat)
+                     | PassageContentsDice DicePassage
+                     | PassageContentsPoll (Ref Poll)
+                     | PassageContentsTextual T.Text
+
+data Passage = Passage { passageContents :: PassageContents
+                       , passageCreatedAt :: UTCTime
+                       , passageCreatedBy :: Maybe (Ref User)
+                       , passageLastUpdatedAt :: Maybe UTCTime
+                       , passageLastUpdatedBy :: Maybe (Ref User)
                        }
 
 data UpdatePassage = UpdatePassage { updatePassageContents :: PassageContents
@@ -46,13 +65,18 @@ data UpdateChapter = UpdateChapter { updateChapterName :: T.Text
                                    , updateChapterIsAppendix :: Bool
                                    }
 
-data Live = Live | LiveAt UTCTime | Unscheduled | Completed | Cancelled
+data Live = LiveLiveSince UTCTime
+          | LiveLiveAt UTCTime
+          | LiveUnscheduled
+          | LiveCompleted
+          | LiveCancelled
 
 data Quest = Quest { questName :: T.Text
+                   , questAuthors :: [Short User]
                    , questTeaser :: T.Text
                    , questBanner :: Maybe URI
                    , questVisibility :: Visibility
-                   , questTags :: [Short Tag]
+                   , questTags :: [TagApplication]
                    , questLive :: Live
                    , questWords :: Int
                    , questCreated :: UTCTime
@@ -60,6 +84,7 @@ data Quest = Quest { questName :: T.Text
                    }
 
 data ShortQuest = ShortQuest { shortQuestName :: T.Text
+                             , shortQuestAuthors :: [Short User]
                              , shortQuestTeaser :: T.Text
                              , shortQuestBanner :: Maybe URI
                              , shortQuestVisibility :: Visibility
@@ -78,7 +103,15 @@ data UpdateQuest = UpdateQuest { updateQuestName :: T.Text
                                , updateQuestLive :: Live
                                }
 
-data QuestRole = QuestRole
+data QuestRoleEnum = QuestRoleOwner
+                   | QuestRoleAuthor
+                   | QuestRoleParticipant
+                   | QuestRoleGuest
+
+data QuestRole = QuestRole { questRoleRole :: QuestRoleEnum
+                           , questRoleAppliedAt :: UTCTime
+                           , questRoleAppliedBy :: Maybe (Ref User)
+                           }
 
 instance RestApi Passage where
   type Short Passage = PassageContents
@@ -109,7 +142,7 @@ instance ToSample PassageContents where
 
 instance ToSample UpdatePassage where
   toSamples _ = noSamples
-  
+
 instance ToSample Chapter where
   toSamples _ = noSamples
 
@@ -132,11 +165,14 @@ instance ToSample QuestRole where
   toSamples _ = noSamples
 
 $(deriveJSON (jsonOptions "chapter") ''Chapter)
+$(deriveJSON (jsonOptions "dicePassage") ''DicePassage)
+$(deriveJSON (jsonOptions "diceRoll") ''DiceRoll)
 $(deriveJSON (jsonOptions "live") ''Live)
 $(deriveJSON (jsonOptions "passage") ''Passage)
 $(deriveJSON (jsonOptions "passageContents") ''PassageContents)
 $(deriveJSON (jsonOptions "quest") ''Quest)
 $(deriveJSON (jsonOptions "questRole") ''QuestRole)
+$(deriveJSON (jsonOptions "questRole") ''QuestRoleEnum)
 $(deriveJSON (jsonOptions "shortChapter") ''ShortChapter)
 $(deriveJSON (jsonOptions "shortQuest") ''ShortQuest)
 $(deriveJSON (jsonOptions "updateChapter") ''UpdateChapter)

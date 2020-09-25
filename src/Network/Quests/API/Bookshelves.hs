@@ -10,20 +10,30 @@ where
 
 import           Data.Aeson.TH
 import qualified Data.Text                     as T
+import           Data.Time
 import           Network.Quests.API.Common
 import           Network.Quests.API.JSON
 import           Network.Quests.API.Quests
+import           Network.Quests.API.Users
 import           Servant.Docs
 
 data Bookshelf = Bookshelf { bookshelfName :: T.Text
+                           , bookshelfEditors :: [Ref User]
                            , bookshelfDescription :: T.Text
                            , bookshelfIcon :: Char
-                           , bookshelfEmailUpdates :: Bool
                            , bookshelfVisibility :: Visibility
+                           , bookshelfCreatedAt :: UTCTime
                            , bookshelfQuests :: [Short Quest]
                            }
+data BookshelfRoleEnum = BookshelfRoleOwner
+                       | BookshelfRoleEditor
+                       | BookshelfRoleVisitor
 
-data BookshelfRole = BookshelfRole
+data BookshelfRole = BookshelfRole { bookshelfRoleRole :: BookshelfRoleEnum
+                                   , bookshelfRoleEmailUpdates :: Bool
+                                   , bookshelfRoleAppliedAt :: UTCTime
+                                   , bookshelfRoleAppliedBy :: Maybe (Ref User)
+                                   }
 
 instance RestApi Bookshelf
 
@@ -32,11 +42,11 @@ instance RestApi BookshelfRole where
   type CaptureType BookshelfRole = T.Text
 
 instance ToSample Bookshelf where
-  toSamples _ =
-    singleSample $ Bookshelf "Likes" "Stories I liked." '❤' False Public []
+  toSamples _ = noSamples
 
 instance ToSample BookshelfRole where
   toSamples _ = noSamples
 
 $(deriveJSON (jsonOptions "bookshelf") ''Bookshelf)
 $(deriveJSON (jsonOptions "bookshelfRole") ''BookshelfRole)
+$(deriveJSON (jsonOptions "bookshelfRole") ''BookshelfRoleEnum)

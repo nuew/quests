@@ -52,8 +52,7 @@ instance ToCapture (Capture "slug" T.Text) where
   toCapture _ = DocCapture "slug" "The slug that corresponds to the resource."
 
 instance ToCapture (Capture "tag" T.Text) where
-  toCapture _ =
-    DocCapture "tag" "The name of the tag."
+  toCapture _ = DocCapture "tag" "The name of the tag."
 
 instance ToHttpApiData URI where
   toUrlPiece = uriToText

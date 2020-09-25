@@ -32,7 +32,7 @@ data ReportSubject = ReportSubjectUser (Short User)
                    | ReportSubjectTag (Short Tag)
 
 data ReportResolution = ReportResolution { reportResolutionAt :: UTCTime
-                                         , reportResolutionBy :: Short User
+                                         , reportResolutionBy :: Maybe (Short User)
                                          }
 
 data Report = Report { reportCreatedAt :: UTCTime
