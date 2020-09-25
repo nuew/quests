@@ -1,5 +1,6 @@
 CREATE TYPE chat_role AS ENUM ('Owner', 'Moderator', 'Voiced');
 CREATE TYPE electionsys AS ENUM ('Approval', 'Borda', 'FPTP', 'Schulze', 'STV');
+CREATE TYPE live_status AS ENUM ('Live', 'Not Live', 'Complete', 'On Hiatus', 'Cancelled');
 CREATE TYPE passagetype AS ENUM ('Chat', 'Dice', 'Poll', 'Textual');
 CREATE TYPE quest_role AS ENUM ('Owner', 'Author', 'Participant', 'Guest');
 CREATE TYPE shelf_role AS ENUM ('Owner', 'Editor', 'Visitor');
@@ -179,10 +180,16 @@ CREATE TABLE quests (
     name            TEXT        NOT NULL,
     teaser          TEXT        NOT NULL,
     banner          TEXT        NULL,
+    live_status     LIVE_STATUS NOT NULL DEFAULT 'Not Live',
+    next_live_since TIMESTAMPTZ NULL,
     visibility      VISIBILITY  NOT NULL,
     only_approved   BOOLEAN     NOT NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    CHECK (NOT (live_status >= 'Complete' AND next_live_since IS NOT NULL))
 );
+
+CREATE INDEX quests_next_live_since_index ON quests (next_live_since);
 
 CREATE TABLE quest_roles (
     quest_id        INT         NOT NULL REFERENCES quests
@@ -256,7 +263,7 @@ CREATE TABLE dice_rolls (
     user_id         INT         NULL REFERENCES users
                                     ON DELETE SET NULL,
     values          SMALLINT[]  NOT NULL, -- Denormalized because normalizing this would be stupid.
-    position        SMALLINT    NOT NULL
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE poll_passages (
@@ -336,7 +343,6 @@ CREATE TABLE bookshelves (
     name            TEXT        NOT NULL,
     description     TEXT        NOT NULL,
     icon            CHAR        NOT NULL,
-    email_updates   BOOLEAN     NOT NULL,
     visibility      VISIBILITY  NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -347,6 +353,7 @@ CREATE TABLE bookshelf_roles (
     user_id         INT         NOT NULL REFERENCES users
                                     ON DELETE CASCADE,
     role            SHELF_ROLE  NOT NULL,
+    email_updates   BOOLEAN     NOT NULL,
     applied_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     applied_by      INT         NULL REFERENCES users
                                     ON DELETE SET NULL,
