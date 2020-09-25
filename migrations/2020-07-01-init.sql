@@ -28,7 +28,8 @@ CREATE TABLE users (
     avatar          TEXT        NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    password_hash   BYTEA       NOT NULL,
+    password_hash   BYTEA       NOT NULL, -- argon2i 1.3 128-bit w/ default options
+    password_salt   BYTEA       NOT NULL, -- 256-bit random
 
     biography       TEXT        NOT NULL DEFAULT '',
     location        TEXT        NOT NULL DEFAULT '',
