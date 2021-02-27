@@ -27,6 +27,7 @@ library
                      , Network.Quests.API.Reports
                      , Network.Quests.API.Tags
                      , Network.Quests.API.Users
+                     , Network.Quests.Schema
                      , Network.Quests.Server
   build-depends:       base >= 4.7 && < 5
                      , aeson
@@ -38,6 +39,7 @@ library
                      , opaleye
                      , postgresql-simple
                      , postgresql-simple-migration
+                     , product-profunctors
                      , resource-pool
                      , servant
                      , servant-auth-server
