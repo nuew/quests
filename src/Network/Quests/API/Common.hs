@@ -15,8 +15,6 @@ import           Network.URI
 import           Network.Quests.API.JSON
 import           Servant
 import           Servant.Docs
-import           Text.Blaze.Html               as BZ
-import           Text.Blaze.XHtml5             as BZ
 
 class RestApi a where
   type Ref a :: *
@@ -57,14 +55,14 @@ instance ToCapture (Capture "tag" T.Text) where
 instance ToHttpApiData URI where
   toUrlPiece = T.pack . show
 
+instance ToSample API where
+  toSamples _ = singleSample . docs $ (Proxy :: Proxy (Get '[JSON] Visibility))
+
 instance ToSample URI where
   toSamples _ =
     singleSample $ URI "https:" (Just $ URIAuth "" "example.com" "") "/" "" ""
-
-instance ToSample T.Text where
-  toSamples _ = singleSample "Lorem ipsum dolor sit amet"
-
-instance ToSample BZ.Html where
-  toSamples _ = singleSample $ BZ.p "Lorem ipsum dolor sit amet"
+    
+instance ToSample Visibility where
+  toSamples _ = samples [Public .. Private]
 
 $(deriveJSON (jsonOptions "") ''Visibility)

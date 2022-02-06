@@ -34,9 +34,9 @@ library
                      , aeson
                      , blaze-html
                      , bytestring
-                     , cmark
                      , cryptonite
                      , http-media
+                     , lens
                      , network-uri
                      , resource-pool
                      , servant
@@ -45,6 +45,7 @@ library
                      , servant-server
                      , text
                      , time
+                     , unordered-containers
   default-language:    Haskell2010
 
 executable quests-exe

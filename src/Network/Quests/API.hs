@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeOperators #-}
 module Network.Quests.API where
 
-import qualified Data.Text                     as T
 import           Network.Quests.API.Bans
 import           Network.Quests.API.Bookshelves
 import           Network.Quests.API.Chats
@@ -44,7 +43,7 @@ type InplaceItemApi a = Capture (CaptureName a) (CaptureType a) :> (
   )
 type InplaceApi a = InplaceListApi a :<|> InplaceItemApi a
 
-type ApiDocumentation = Get '[XHTML, HTML, PlainText] T.Text
+type ApiDocumentation = Get '[XHTML, HTML, Markdown] API
 
 type CreateReportApi = ReqBody '[JSON] CreateReport :> Post '[JSON] NoContent
 
@@ -108,5 +107,5 @@ type ApiRoot = ApiDocumentation :<|> "v1" :> ApiVersion1
 api :: Proxy ApiRoot
 api = Proxy
 
-apiDocs :: T.Text
-apiDocs = T.pack . markdown $ docs api
+apiDocs :: API
+apiDocs = docs api

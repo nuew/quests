@@ -6,9 +6,6 @@ module Network.Quests.Server
   )
 where
 
-import           Data.Pool
-import           Crypto.Random
-import           Data.IORef
 import           Network.Quests.API
 import           Network.Quests.GlobalContext
 import           Servant
