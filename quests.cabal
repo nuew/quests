@@ -27,17 +27,16 @@ library
                      , Network.Quests.API.Reports
                      , Network.Quests.API.Tags
                      , Network.Quests.API.Users
+                     , Network.Quests.Docs
                      , Network.Quests.Server
   build-depends:       base >= 4.7 && < 5
                      , aeson
+                     , blaze-html
                      , bytestring
+                     , cmark
                      , cryptonite
-                     , file-embed
-                     , memory
+                     , http-media
                      , network-uri
-                     , opaleye
-                     , postgresql-simple
-                     , postgresql-simple-migration
                      , resource-pool
                      , servant
                      , servant-auth-server
@@ -54,14 +53,11 @@ executable quests-exe
   other-modules:       Paths_quests
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
-                     , aeson
                      , bytestring
-                     , dotenv
+                     , load-env
                      , network
                      , quests
-                     , raven-haskell
                      , time
-                     , unordered-containers
                      , wai
                      , warp
   default-language:    Haskell2010

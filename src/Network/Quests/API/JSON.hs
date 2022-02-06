@@ -1,6 +1,5 @@
 module Network.Quests.API.JSON where
 
-import           Data.Aeson.Encoding
 import           Data.Aeson.TH
 import           Data.Aeson.Types
 import           Data.Char
@@ -8,9 +7,6 @@ import           Data.List
 import           Data.Maybe
 import qualified Data.Text                     as T
 import           Network.URI
-import           Servant.Auth.Server
-
-uriToText uri = T.pack $ uriToString id uri ""
 
 jsonOptions :: String -> Options
 jsonOptions prefix = defaultOptions
@@ -20,7 +16,15 @@ jsonOptions prefix = defaultOptions
   }
  where
   mapFirst f (x : xs) = f x : xs
-  mapFirst f []       = []
+  mapFirst _ []       = []
 
-  stripPrefixL prefix = mapFirst toLower . fromMaybe "" . stripPrefix prefix
+  stripPrefixL prefixL = mapFirst toLower . fromMaybe "" . stripPrefix prefixL
   stripPrefixU = stripPrefixL . mapFirst toUpper
+
+-- This is evil, but there's not much else to do here, given Crypto.JOSE.Types.Orphans. In this
+-- case, we try to match behaivour exactly, so it shouldn't matter which instance is chosen.
+instance {-# INCOHERENT #-} FromJSON URI where
+  parseJSON = withText "URI" (maybe (fail "not a URI") return . parseURI . T.unpack)
+
+instance {-# INCOHERENT #-} ToJSON URI where
+  toJSON = String . T.pack . show

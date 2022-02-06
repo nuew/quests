@@ -8,15 +8,15 @@
 module Network.Quests.API.Common where
 
 import           Data.Aeson.TH
-import qualified Data.ByteString               as B
 import           Data.Int
 import qualified Data.Text                     as T
-import qualified Database.PostgreSQL.Simple    as PG
 import           GHC.TypeLits
 import           Network.URI
 import           Network.Quests.API.JSON
 import           Servant
 import           Servant.Docs
+import           Text.Blaze.Html               as BZ
+import           Text.Blaze.XHtml5             as BZ
 
 class RestApi a where
   type Ref a :: *
@@ -55,7 +55,7 @@ instance ToCapture (Capture "tag" T.Text) where
   toCapture _ = DocCapture "tag" "The name of the tag."
 
 instance ToHttpApiData URI where
-  toUrlPiece = uriToText
+  toUrlPiece = T.pack . show
 
 instance ToSample URI where
   toSamples _ =
@@ -63,5 +63,8 @@ instance ToSample URI where
 
 instance ToSample T.Text where
   toSamples _ = singleSample "Lorem ipsum dolor sit amet"
+
+instance ToSample BZ.Html where
+  toSamples _ = singleSample $ BZ.p "Lorem ipsum dolor sit amet"
 
 $(deriveJSON (jsonOptions "") ''Visibility)

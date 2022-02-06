@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeOperators #-}
 module Network.Quests.API where
 
-import           Data.Int
 import qualified Data.Text                     as T
 import           Network.Quests.API.Bans
 import           Network.Quests.API.Bookshelves
@@ -13,6 +12,7 @@ import           Network.Quests.API.Quests
 import           Network.Quests.API.Reports
 import           Network.Quests.API.Tags
 import           Network.Quests.API.Users
+import           Network.Quests.Docs
 import           Servant
 import           Servant.Docs
 
@@ -21,7 +21,7 @@ type HierCreateEndpoint a = PostCreated '[JSON] (Headers '[Header "Location" URI
 type HierCreateApi a = ReqBody '[JSON] (Create a) :> HierCreateEndpoint a
 type HierItemGetApi a = Get '[JSON] a
 type HierItemUpdateApi a = ReqBody '[JSON] (Update a) :> Put '[JSON] a
-type HierItemDeleteApi a = DeleteNoContent '[JSON] NoContent
+type HierItemDeleteApi a = DeleteNoContent
 type HierItemApi a b = Capture (CaptureName a) (CaptureType a) :> (
     HierItemGetApi a :<|>
     HierItemUpdateApi a :<|>
@@ -36,7 +36,7 @@ type HierarchicalApi a b =
 type InplaceListApi a = Get '[JSON] [Short a]
 type InplaceValueApi a = Get '[JSON] a
 type InplaceSetApi a = ReqBody '[JSON] (Create a) :> Put '[JSON] a
-type InplaceResetApi a = DeleteNoContent '[JSON] NoContent
+type InplaceResetApi a = DeleteNoContent
 type InplaceItemApi a = Capture (CaptureName a) (CaptureType a) :> (
     InplaceValueApi a :<|>
     InplaceSetApi a :<|>
@@ -44,7 +44,7 @@ type InplaceItemApi a = Capture (CaptureName a) (CaptureType a) :> (
   )
 type InplaceApi a = InplaceListApi a :<|> InplaceItemApi a
 
-type ApiDocumentation = Get '[PlainText] T.Text
+type ApiDocumentation = Get '[XHTML, HTML, PlainText] T.Text
 
 type CreateReportApi = ReqBody '[JSON] CreateReport :> Post '[JSON] NoContent
 
