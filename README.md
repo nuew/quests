@@ -8,9 +8,6 @@ You need a recent version of [Stack][STACK]. Once installed, you can build by
 running `stack build`. Installation to your path may be done using
 `stack install`.
 
-A recent version of [PostgreSQL][POSTGRESQL] is required, and [Sentry][SENTRY]
-is (optionally) used for error aggregation.
-
 ## Usage
 ### Modules
 Modules are specified at the command line. The default module is '', the empty
@@ -52,7 +49,6 @@ Important variables are listed **`in bold`**.
 | `DB_STRIPES`         | The number of stripes (distinct sub-pools) to maintain. The smallest acceptable value is 1.                             | `2`       |
 | `DB_TIMEOUT`         | Amount of time for which an unused connection is kept open. The smallest acceptable value is 0.5 seconds.               | `10`      |
 | **`SECRET_KEY`**     | The (unique!) 32-byte secret key for this installation. This is used to encrypt cookies and various tokens.             | Required  |
-| **`SENTRY_DSN`**     | Old-style/deprecated [Sentry][SENTRY] DSN.                                                                              | None      |
 | `SOCKET`             | The name of a Unix socket to use instead of the default TCP socket.                                                     | None      |
 
 [CVARS]: https://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html

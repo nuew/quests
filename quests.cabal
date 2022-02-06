@@ -28,6 +28,7 @@ library
                      , Network.Quests.API.Tags
                      , Network.Quests.API.Users
                      , Network.Quests.Docs
+                     , Network.Quests.GlobalContext
                      , Network.Quests.Server
   build-depends:       base >= 4.7 && < 5
                      , aeson

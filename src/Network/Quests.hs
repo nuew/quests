@@ -1,8 +1,6 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
 module Network.Quests
-  ( AppConfiguration(..)
+  ( ContextConfiguration(..)
   , app
   , applyMigrations
   , dumpLayout
@@ -10,48 +8,27 @@ module Network.Quests
 where
 
 import           Control.Exception.Base
-import           Crypto.Random
 import qualified Data.ByteString               as B
-import           Data.IORef
-import           Data.Pool
 import qualified Data.Text                     as T
-import           Data.Time.Clock
 import           Network.Quests.API
+import           Network.Quests.GlobalContext
 import           Network.Quests.Server
 import           Servant
 import           Servant.Auth.Server
 
-data AppConfiguration = AppConfiguration
-  { databaseConnection :: B.ByteString
-  , databasePoolMaxConns :: Int
-  , databasePoolStripes :: Int
-  , databasePoolTimeout :: NominalDiffTime
-  , secretKey :: B.ByteString
-  }
+server :: GlobalContext -> Server ApiRoot
+server gctx = return apiDocs :<|> apiV1Server gctx
 
-setupDatabasePool :: AppConfiguration -> IO (Pool ())
-setupDatabasePool cfg = do
-  pool <- createPool (return ())
-                     (return $ return ())
-                     (databasePoolStripes cfg)
-                     (databasePoolTimeout cfg)
-                     (databasePoolMaxConns cfg)
-  return pool
+apiContext :: B.ByteString -> Context '[JWTSettings, CookieSettings]
+apiContext key = jwtCtx :. defaultCookieSettings :. EmptyContext
+  where jwtCtx = defaultJWTSettings $ fromSecret key
 
-server :: Pool () -> IORef ChaChaDRG -> Server ApiRoot
-server pool rng = return apiDocs :<|> apiV1Server pool rng
+app :: ContextConfiguration -> B.ByteString -> IO Application
+app cfg key = bracket (setupGlobalContext cfg) destroyGlobalContext
+  $ return . serveWithContext api (apiContext key) . server
 
-apiContext :: AppConfiguration -> Context '[JWTSettings, CookieSettings]
-apiContext cfg = jwtCtx :. defaultCookieSettings :. EmptyContext
-  where jwtCtx = defaultJWTSettings . fromSecret $ secretKey cfg
+applyMigrations :: ContextConfiguration -> IO ()
+applyMigrations _ = return ()
 
-app :: AppConfiguration -> IO Application
-app cfg = bracket (setupDatabasePool cfg) destroyAllResources
-  $ \pool -> serveWithContext api (apiContext cfg) . server pool <$> setupRng
-  where setupRng = drgNew >>= newIORef
-
-applyMigrations :: AppConfiguration -> IO ()
-applyMigrations = return $ return ()
-
-dumpLayout :: AppConfiguration -> String
+dumpLayout :: B.ByteString -> String
 dumpLayout = T.unpack . layoutWithContext api . apiContext

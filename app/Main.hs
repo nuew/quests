@@ -99,14 +99,14 @@ loadConfiguration = cfgPopulate defaultConfiguration <$> getSettings
         -- Load environment variables from dotenv file
         getSettings     = loadEnv >> getEnvironment
 
-appCfgOfCfg :: Configuration -> Q.AppConfiguration
-appCfgOfCfg cfg = Q.AppConfiguration
+appCfgOfCfg :: Configuration -> (Q.ContextConfiguration, B.ByteString)
+appCfgOfCfg cfg = (Q.ContextConfiguration
         { Q.databaseConnection   = databaseConnection cfg
         , Q.databasePoolMaxConns = databasePoolMaxConns cfg
         , Q.databasePoolStripes  = databasePoolStripes cfg
         , Q.databasePoolTimeout  = databasePoolTimeout cfg
-        , Q.secretKey            = secretKeyCheck $ secretKey cfg
         }
+        , secretKeyCheck $ secretKey cfg)
     where
         secretKeyErrMsg = "SECRET_KEY must be specified!"
         secretKeyCheck msk = case msk of
@@ -115,7 +115,7 @@ appCfgOfCfg cfg = Q.AppConfiguration
 
 runServer :: Configuration -> IO ()
 runServer cfg = do
-        app <- Q.app $ appCfgOfCfg cfg
+        app <- uncurry Q.app $ appCfgOfCfg cfg
         getWarp cfg app
     where
         unixSocket path = do
@@ -139,6 +139,6 @@ main = do
 
         runModule []              = runServer
         runModule (""        : _) = runModule []
-        runModule ("layout"  : _) = putStr . Q.dumpLayout . appCfgOfCfg
-        runModule ("migrate" : _) = Q.applyMigrations . appCfgOfCfg
+        runModule ("layout"  : _) = putStr . Q.dumpLayout . snd . appCfgOfCfg
+        runModule ("migrate" : _) = Q.applyMigrations . fst . appCfgOfCfg
         runModule _               = errorWithoutStackTrace "No such module."
