@@ -43,7 +43,7 @@ type InplaceItemApi a = Capture (CaptureName a) (CaptureType a) :> (
   )
 type InplaceApi a = InplaceListApi a :<|> InplaceItemApi a
 
-type ApiDocumentation = Get '[XHTML, HTML, Markdown] API
+type ApiDocumentation = Get '[XHTML, Markdown] API
 
 type CreateReportApi = ReqBody '[JSON] CreateReport :> Post '[JSON] NoContent
 
