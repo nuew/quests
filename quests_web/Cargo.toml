@@ -1,0 +1,12 @@
+[package]
+name = "quests_web"
+version = "0.0.0"
+authors = ["Emma Welker <code@nuew.net>"]
+edition = "2021"
+description = "The website implementation of an interactive online roleplaying software service"
+repository = "https://github.com/nuew/quests"
+license = "AGPL-3.0-or-later"
+
+publish = false # not for crates.io
+
+[dependencies]
