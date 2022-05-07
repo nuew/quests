@@ -9,6 +9,15 @@ license = "AGPL-3.0-or-later"
 
 publish = false # not for crates.io
 
+[features]
+serde = ["dep:serde", "url/serde"]
+
 [dependencies]
-tracing = "0.1"
+async-trait = "0.1"
 rand = "0.8"
+serde = { version = "1", features = ["derive"], optional = true }
+tracing = "0.1"
+url = "2"
+
+[dev-dependencies]
+smol = "1"
