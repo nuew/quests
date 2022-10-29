@@ -3,8 +3,11 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 
 use crate::{
-    chats::Chat, dice::Dice, polls::Poll, users::User, AccessControlled, Handle, PermissionsError,
-    UploadedImage,
+    chats::{Chat, Message},
+    dice::Dice,
+    polls::Poll,
+    users::User,
+    AccessControlled, Deletable, HasTimeMetadata, HeldRole, PermissionsError, UploadedImage,
 };
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
@@ -36,7 +39,7 @@ pub enum ChapterCategory {
     Appendix,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Quest {
     _marker: (),
 }
@@ -114,7 +117,37 @@ impl Quest {
 }
 
 #[async_trait]
-impl Handle for Quest {
+impl AccessControlled for Quest {
+    type Roles = Role;
+    type RoleUsersIter = std::vec::IntoIter<User>;
+
+    async fn add_role_to(&self, _user: &User, _role: Self::Roles) -> Result<(), PermissionsError> {
+        unimplemented!()
+    }
+
+    async fn remove_role_from(
+        &self,
+        _user: &User,
+        _role: Self::Roles,
+    ) -> Result<(), PermissionsError> {
+        unimplemented!()
+    }
+
+    async fn current_user(&self) -> Option<User> {
+        unimplemented!()
+    }
+
+    async fn current_role(&self) -> Option<HeldRole<Self::Roles>> {
+        unimplemented!()
+    }
+
+    async fn role_users(&self, _role: Self::Roles) -> Self::RoleUsersIter {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl HasTimeMetadata for Quest {
     async fn created_at(&self) -> SystemTime {
         unimplemented!()
     }
@@ -122,39 +155,16 @@ impl Handle for Quest {
     async fn last_active_at(&self) -> SystemTime {
         unimplemented!()
     }
+}
 
+#[async_trait]
+impl Deletable for Quest {
     async fn delete(&self) -> Result<(), PermissionsError> {
         unimplemented!()
     }
 }
 
-#[async_trait]
-impl AccessControlled for Quest {
-    type Roles = Role;
-    type RoleUsersIter = std::vec::IntoIter<User>;
-
-    async fn add_role(&self, _user: &User, _role: Self::Roles) -> Result<(), PermissionsError> {
-        unimplemented!()
-    }
-
-    async fn remove_role(&self, _user: &User, _role: Self::Roles) -> Result<(), PermissionsError> {
-        unimplemented!()
-    }
-
-    async fn role_users(&self, _role: Self::Roles) -> Self::RoleUsersIter {
-        unimplemented!()
-    }
-
-    async fn my_role_applied_at(&self) -> Option<SystemTime> {
-        unimplemented!()
-    }
-
-    async fn my_role_applied_by(&self) -> Result<Option<User>, PermissionsError> {
-        unimplemented!()
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Chapter {
     _marker: (),
 }
@@ -188,7 +198,7 @@ impl Chapter {
 }
 
 #[async_trait]
-impl Handle for Chapter {
+impl HasTimeMetadata for Chapter {
     async fn created_at(&self) -> SystemTime {
         unimplemented!()
     }
@@ -196,7 +206,10 @@ impl Handle for Chapter {
     async fn last_active_at(&self) -> SystemTime {
         unimplemented!()
     }
+}
 
+#[async_trait]
+impl Deletable for Chapter {
     async fn delete(&self) -> Result<(), PermissionsError> {
         unimplemented!()
     }
@@ -209,11 +222,11 @@ pub enum PassageContents {
     Chat(Chat),
     Dice(Dice<Quest>),
     Poll(Poll<Quest>),
-    Text(String),
+    Text(Message), // TODO should this get its own struct?
     UploadedImage(UploadedImage),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Passage {
     _marker: (),
 }
@@ -225,7 +238,7 @@ impl Passage {
 }
 
 #[async_trait]
-impl Handle for Passage {
+impl HasTimeMetadata for Passage {
     async fn created_at(&self) -> SystemTime {
         unimplemented!()
     }
@@ -233,7 +246,10 @@ impl Handle for Passage {
     async fn last_active_at(&self) -> SystemTime {
         unimplemented!()
     }
+}
 
+#[async_trait]
+impl Deletable for Passage {
     async fn delete(&self) -> Result<(), PermissionsError> {
         unimplemented!()
     }

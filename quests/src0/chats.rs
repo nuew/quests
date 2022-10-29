@@ -3,7 +3,8 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 
 use crate::{
-    dice::Dice, polls::Poll, users::User, AccessControlled, Handle, PermissionsError, UploadedImage,
+    dice::Dice, polls::Poll, users::User, AccessControlled, Deletable, HasTimeMetadata, HeldRole,
+    PermissionsError, UploadedImage,
 };
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
@@ -21,7 +22,7 @@ pub enum PostingRestriction {
     Closed,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Chat {
     _marker: (),
 }
@@ -63,7 +64,37 @@ impl Chat {
 }
 
 #[async_trait]
-impl Handle for Chat {
+impl AccessControlled for Chat {
+    type Roles = Role;
+    type RoleUsersIter = std::vec::IntoIter<User>;
+
+    async fn add_role_to(&self, _user: &User, _role: Self::Roles) -> Result<(), PermissionsError> {
+        unimplemented!()
+    }
+
+    async fn remove_role_from(
+        &self,
+        _user: &User,
+        _role: Self::Roles,
+    ) -> Result<(), PermissionsError> {
+        unimplemented!()
+    }
+
+    async fn current_user(&self) -> Option<User> {
+        unimplemented!()
+    }
+
+    async fn current_role(&self) -> Option<HeldRole<Self::Roles>> {
+        unimplemented!()
+    }
+
+    async fn role_users(&self, _role: Self::Roles) -> Self::RoleUsersIter {
+        unimplemented!()
+    }
+}
+
+#[async_trait]
+impl HasTimeMetadata for Chat {
     async fn created_at(&self) -> SystemTime {
         unimplemented!()
     }
@@ -71,39 +102,16 @@ impl Handle for Chat {
     async fn last_active_at(&self) -> SystemTime {
         unimplemented!()
     }
+}
 
+#[async_trait]
+impl Deletable for Chat {
     async fn delete(&self) -> Result<(), PermissionsError> {
         unimplemented!()
     }
 }
 
-#[async_trait]
-impl AccessControlled for Chat {
-    type Roles = Role;
-    type RoleUsersIter = std::vec::IntoIter<User>;
-
-    async fn add_role(&self, _user: &User, _role: Self::Roles) -> Result<(), PermissionsError> {
-        unimplemented!()
-    }
-
-    async fn remove_role(&self, _user: &User, _role: Self::Roles) -> Result<(), PermissionsError> {
-        unimplemented!()
-    }
-
-    async fn role_users(&self, _role: Self::Roles) -> Self::RoleUsersIter {
-        unimplemented!()
-    }
-
-    async fn my_role_applied_at(&self) -> Option<SystemTime> {
-        unimplemented!()
-    }
-
-    async fn my_role_applied_by(&self) -> Result<Option<User>, PermissionsError> {
-        unimplemented!()
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Message {
     _marker: (),
 }
@@ -128,16 +136,22 @@ impl Message {
     pub async fn delete_attachment(&self) -> Result<(), PermissionsError> {
         unimplemented!()
     }
+}
 
-    pub async fn posted_at(&self) -> SystemTime {
+#[async_trait]
+impl HasTimeMetadata for Message {
+    async fn created_at(&self) -> SystemTime {
         unimplemented!()
     }
 
-    pub async fn last_edited_at(&self) -> SystemTime {
+    async fn last_active_at(&self) -> SystemTime {
         unimplemented!()
     }
+}
 
-    pub async fn delete(&self) -> Result<(), PermissionsError> {
+#[async_trait]
+impl Deletable for Message {
+    async fn delete(&self) -> Result<(), PermissionsError> {
         unimplemented!()
     }
 }

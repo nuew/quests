@@ -19,23 +19,34 @@
     variant_size_differences
 )]
 
-mod context;
-mod handle;
-mod roles;
-mod upload;
+mod object;
+mod user;
 
-pub mod authenticate;
-pub mod chats;
-pub mod dice;
-pub mod polls;
-pub mod quests;
-pub mod users;
+pub mod roles;
 
-pub use self::{
-    context::Context,
-    handle::Handle,
-    roles::{AccessControlled, PermissionsError},
-    upload::UploadedImage,
-};
+use std::marker::PhantomData;
 
-pub type EmailAddress = String; // FIXME use some crate for this
+use self::object::Handle;
+
+pub use self::user::User;
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Chat<T> {
+    handle: Handle<Self>,
+    _marker: PhantomData<fn(T)>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Quest<T> {
+    handle: Handle<Self>,
+    _marker: PhantomData<fn(T)>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Shelf<T> {
+    handle: Handle<Self>,
+    _marker: PhantomData<fn(T)>,
+}
+
+#[derive(Debug)]
+pub struct Context;
